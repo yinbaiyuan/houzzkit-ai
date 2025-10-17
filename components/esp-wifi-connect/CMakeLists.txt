@@ -1,0 +1,15 @@
+idf_component_register(
+    SRCS
+        "wifi_configuration_ap.cc"
+        "wifi_station.cc"
+        "ssid_manager.cc"
+        "dns_server.cc"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+    	"esp_timer"
+        "esp_http_server"
+        "esp_wifi"
+        "nvs_flash"
+        "json"
+)
