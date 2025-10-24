@@ -37,11 +37,14 @@ set(ESPHOME_SOURCES
     "esphome/components/number/number.cpp"
     "esphome/components/number/number_call.cpp"
     "esphome/components/number/number_traits.cpp"
+    "esphome/components/text/text.cpp"
+    "esphome/components/text/text_call.cpp"
 )
 
 # Collect all include directories
 set(ESPHOME_INCLUDE_DIRS
     "."
+    "esphome"
     "esphome/core"
     "esphome/components"
     "esphome/components/api"
@@ -52,6 +55,7 @@ set(ESPHOME_INCLUDE_DIRS
     "esphome/components/button"
     "esphome/components/switch"
     "esphome/components/number"
+    "esphome/components/text"
 )
 
 # Register the component with ESP-IDF
