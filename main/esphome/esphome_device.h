@@ -34,7 +34,7 @@ class ESPHomeDevice
 
         void setPlayVoiceText(const std::string &value);
 
-        void setExecuteCommand(const std::string &value);
+        void setExecuteCommandText(const std::string &value);
 
         bool micEnabled() const { return _micEnabled; } 
         

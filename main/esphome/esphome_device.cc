@@ -61,7 +61,7 @@ class ExecuteCommandText : public esphome::text::Text
 public:
   void control(const std::string &value) override
   {
-    ESPHomeDevice::GetInstance().setExecuteCommand(value);
+    ESPHomeDevice::GetInstance().setExecuteCommandText(value);
   };
 };
 
@@ -255,11 +255,13 @@ void ESPHomeDevice::setIdleScreenOff(bool enabled)
 void ESPHomeDevice::setPlayVoiceText(const std::string &value)
 {
   printf("PlayVoiceText: %s\n", value.c_str());
+  Application::GetInstance().playVoiceText(value);
   play_voice_text_id->publish_state("");
 }
 
-void ESPHomeDevice::setExecuteCommand(const std::string &value)
+void ESPHomeDevice::setExecuteCommandText(const std::string &value)
 {
-  printf("ExecuteCommand: %s\n", value.c_str());
+  printf("ExecuteCommandText: %s\n", value.c_str());
+  Application::GetInstance().executeCommandText(value);
   execute_command_text_id->publish_state("");
 }

@@ -723,6 +723,30 @@ void Application::SetListeningMode(ListeningMode mode) {
     SetDeviceState(kDeviceStateListening);
 }
 
+void Application::playVoiceText(const std::string& text) {
+    if (!protocol_->IsAudioChannelOpened()) {
+            SetDeviceState(kDeviceStateConnecting);
+            if (!protocol_->OpenAudioChannel()) {
+                audio_service_.EnableWakeWordDetection(true);
+                return;
+            }
+    }
+    protocol_->sendPlayVoiceText(text);
+}
+
+void Application::executeCommandText(const std::string& command) {
+    if (!protocol_->IsAudioChannelOpened()) {
+            SetDeviceState(kDeviceStateConnecting);
+            if (!protocol_->OpenAudioChannel()) {
+                audio_service_.EnableWakeWordDetection(true);
+                return;
+            }
+    }
+    protocol_->sendExecuteCommandText(command);
+}
+
+
+
 void Application::SetDeviceState(DeviceState state) {
     if (device_state_ == state) {
         return;

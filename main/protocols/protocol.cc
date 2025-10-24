@@ -78,6 +78,18 @@ void Protocol::SendMcpMessage(const std::string& payload) {
     SendText(message);
 }
 
+void Protocol::sendPlayVoiceText(const std::string& text) {
+    std::string message = "{\"session_id\":\"" + session_id_ + "\",\"type\":\"speaker_tts\",\"text\":\"" + text + "\"}";
+    SendText(message);
+}
+
+void Protocol::sendExecuteCommandText(const std::string& command) {
+    // std::string message = "{\"session_id\":\"" + session_id_ + "\",\"type\":\"listen\",\"detect\":\"" + command + "\",\"state\":\"detect\"}";
+    // SendText(message);
+}
+
+
+
 bool Protocol::IsTimeout() const {
     const int kTimeoutSeconds = 120;
     auto now = std::chrono::steady_clock::now();
