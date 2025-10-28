@@ -488,6 +488,18 @@ void Application::Start() {
                         display->SetChatMessage("assistant", message.c_str());
                     });
                 }
+            }else if (strcmp(state->valuestring, "play_start") == 0) {
+                Schedule([this]() {
+                    SetDeviceState(kDeviceStateSpeaking);
+                });
+            }else if (strcmp(state->valuestring, "play_stop") == 0) {
+                Schedule([this,display]() {
+                    SetDeviceState(kDeviceStateIdle);
+                    display->SetChatMessage("system", "");
+                    if (protocol_) {
+                        protocol_->CloseAudioChannel();
+                    }
+                });
             }
         } else if (strcmp(type->valuestring, "stt") == 0) {
             auto text = cJSON_GetObjectItem(root, "text");
@@ -724,6 +736,7 @@ void Application::SetListeningMode(ListeningMode mode) {
 }
 
 void Application::playVoiceText(const std::string& text) {
+    audio_service_.EnableWakeWordDetection(false);
     if (!protocol_->IsAudioChannelOpened()) {
             SetDeviceState(kDeviceStateConnecting);
             if (!protocol_->OpenAudioChannel()) {
@@ -735,6 +748,7 @@ void Application::playVoiceText(const std::string& text) {
 }
 
 void Application::executeCommandText(const std::string& command) {
+    audio_service_.EnableWakeWordDetection(false);
     if (!protocol_->IsAudioChannelOpened()) {
             SetDeviceState(kDeviceStateConnecting);
             if (!protocol_->OpenAudioChannel()) {
@@ -746,8 +760,8 @@ void Application::executeCommandText(const std::string& command) {
 }
 
 
-
 void Application::SetDeviceState(DeviceState state) {
+
     if (device_state_ == state) {
         return;
     }
