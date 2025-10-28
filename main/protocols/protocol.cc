@@ -84,8 +84,8 @@ void Protocol::sendPlayVoiceText(const std::string& text) {
 }
 
 void Protocol::sendExecuteCommandText(const std::string& command) {
-    // std::string message = "{\"session_id\":\"" + session_id_ + "\",\"type\":\"listen\",\"detect\":\"" + command + "\",\"state\":\"detect\"}";
-    // SendText(message);
+    std::string message = "{\"session_id\":\"" + session_id_ + "\",\"type\":\"speaker_order\",\"text\":\"" + command + "\"}";
+    SendText(message);
 }
 
 
