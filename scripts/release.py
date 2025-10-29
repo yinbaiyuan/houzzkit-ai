@@ -45,10 +45,20 @@ def merge_bin() -> None:
 
 
 def zip_bin(name: str, version: str) -> None:
-    """Zip build/merged-binary.bin to releases/v{version}_{name}.zip"""
-    out_dir = Path("releases")
-    out_dir.mkdir(exist_ok=True)
+    """Zip build/merged-binary.bin to releases/{name}/v{version}/v{version}_{name}.zip"""
+    out_dir = Path(f"releases/{name}/v{version}")
+    out_dir.mkdir(parents=True,exist_ok=True)
     output_path = out_dir / f"v{version}_{name}.zip"
+
+    if output_path.exists():
+        output_path.unlink()
+
+    with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write("build/merged-binary.bin", arcname="merged-binary.bin")
+
+    version_dir = Path(f"releases/v{version}")
+    version_dir.mkdir(parents=True,exist_ok=True)
+    output_path = version_dir / f"v{version}_{name}.zip"
 
     if output_path.exists():
         output_path.unlink()
