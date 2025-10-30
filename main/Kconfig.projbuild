@@ -94,24 +94,24 @@ choice BOARD_TYPE
     config BOARD_TYPE_BREAD_COMPACT_WIFI_CAM
         bool "Bread Compact WiFi + LCD + Camera (面包板)"
         depends on IDF_TARGET_ESP32S3     
-    config BOARD_TYPE_BREAD_COMPACT_ML307
-        bool "Bread Compact ML307/EC801E (面包板 4G)"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_BREAD_COMPACT_ESP32
-        bool "Bread Compact ESP32 DevKit (面包板)"
-        depends on IDF_TARGET_ESP32
-    config BOARD_TYPE_BREAD_COMPACT_ESP32_LCD
-        bool "Bread Compact ESP32 DevKit + LCD (面包板)"
-        depends on IDF_TARGET_ESP32
-    config BOARD_TYPE_XMINI_C3_V3
-        bool "Xmini C3 V3"
-        depends on IDF_TARGET_ESP32C3
-    config BOARD_TYPE_XMINI_C3_4G
-        bool "Xmini C3 4G"
-        depends on IDF_TARGET_ESP32C3
-    config BOARD_TYPE_XMINI_C3
-        bool "Xmini C3"
-        depends on IDF_TARGET_ESP32C3
+    # config BOARD_TYPE_BREAD_COMPACT_ML307
+    #     bool "Bread Compact ML307/EC801E (面包板 4G)"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_BREAD_COMPACT_ESP32
+    #     bool "Bread Compact ESP32 DevKit (面包板)"
+    #     depends on IDF_TARGET_ESP32
+    # config BOARD_TYPE_BREAD_COMPACT_ESP32_LCD
+    #     bool "Bread Compact ESP32 DevKit + LCD (面包板)"
+    #     depends on IDF_TARGET_ESP32
+    # config BOARD_TYPE_XMINI_C3_V3
+    #     bool "Xmini C3 V3"
+    #     depends on IDF_TARGET_ESP32C3
+    # config BOARD_TYPE_XMINI_C3_4G
+    #     bool "Xmini C3 4G"
+    #     depends on IDF_TARGET_ESP32C3
+    # config BOARD_TYPE_XMINI_C3
+    #     bool "Xmini C3"
+    #     depends on IDF_TARGET_ESP32C3
     config BOARD_TYPE_ESP32S3_KORVO2_V3
         bool "ESP32S3 KORVO2 V3"
         depends on IDF_TARGET_ESP32S3
@@ -133,78 +133,78 @@ choice BOARD_TYPE
     config BOARD_TYPE_ESP_BOX
         bool "ESP BOX"
         depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_ESP_BOX_LITE
-        bool "ESP BOX Lite"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_KEVIN_BOX_1
-        bool "Kevin Box 1"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_KEVIN_BOX_2
-        bool "Kevin Box 2"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_KEVIN_C3
-        bool "Kevin C3"
-        depends on IDF_TARGET_ESP32C3
-    config BOARD_TYPE_KEVIN_SP_V3_DEV
-        bool "Kevin SP V3"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_KEVIN_SP_V4_DEV
-        bool "Kevin SP V4"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_ESP32_CGC
-        bool "ESP32 CGC"
-        depends on IDF_TARGET_ESP32
-    config BOARD_TYPE_ESP32_CGC_144
-        bool "ESP32 CGC 144"
-        depends on IDF_TARGET_ESP32
+    # config BOARD_TYPE_ESP_BOX_LITE
+    #     bool "ESP BOX Lite"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_KEVIN_BOX_1
+    #     bool "Kevin Box 1"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_KEVIN_BOX_2
+    #     bool "Kevin Box 2"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_KEVIN_C3
+    #     bool "Kevin C3"
+    #     depends on IDF_TARGET_ESP32C3
+    # config BOARD_TYPE_KEVIN_SP_V3_DEV
+    #     bool "Kevin SP V3"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_KEVIN_SP_V4_DEV
+    #     bool "Kevin SP V4"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_ESP32_CGC
+    #     bool "ESP32 CGC"
+    #     depends on IDF_TARGET_ESP32
+    # config BOARD_TYPE_ESP32_CGC_144
+    #     bool "ESP32 CGC 144"
+    #     depends on IDF_TARGET_ESP32
     config BOARD_TYPE_KEVIN_YUYING_313LCD
         bool "鱼鹰科技 3.13LCD"
         depends on IDF_TARGET_ESP32S3
     config BOARD_TYPE_LICHUANG_DEV
         bool "立创·实战派 ESP32-S3"
         depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_LICHUANG_C3_DEV
-        bool "立创·实战派 ESP32-C3"
-        depends on IDF_TARGET_ESP32C3
+    # config BOARD_TYPE_LICHUANG_C3_DEV
+    #     bool "立创·实战派 ESP32-C3"
+    #     depends on IDF_TARGET_ESP32C3
     config BOARD_TYPE_DF_K10
         bool "DFRobot 行空板 k10"
         depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_DF_S3_AI_CAM
-        bool "DFRobot ESP32-S3 AI智能摄像头模块"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_MAGICLICK_2P4
-        bool "神奇按钮 Magiclick_2.4"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_MAGICLICK_2P5
-        bool "神奇按钮 Magiclick_2.5"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_MAGICLICK_C3
-        bool "神奇按钮 Magiclick_C3"
-        depends on IDF_TARGET_ESP32C3
-    config BOARD_TYPE_MAGICLICK_C3_V2
-        bool "神奇按钮 Magiclick_C3_v2"
-        depends on IDF_TARGET_ESP32C3
+    # config BOARD_TYPE_DF_S3_AI_CAM
+    #     bool "DFRobot ESP32-S3 AI智能摄像头模块"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_MAGICLICK_2P4
+    #     bool "神奇按钮 Magiclick_2.4"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_MAGICLICK_2P5
+    #     bool "神奇按钮 Magiclick_2.5"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_MAGICLICK_C3
+    #     bool "神奇按钮 Magiclick_C3"
+    #     depends on IDF_TARGET_ESP32C3
+    # config BOARD_TYPE_MAGICLICK_C3_V2
+    #     bool "神奇按钮 Magiclick_C3_v2"
+    #     depends on IDF_TARGET_ESP32C3
     config BOARD_TYPE_M5STACK_CORE_S3
         bool "M5Stack CoreS3"
         depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_M5STACK_CORE_TAB5
-        bool "M5Stack Tab5"
-        depends on IDF_TARGET_ESP32P4
-    config BOARD_TYPE_ATOMS3_ECHO_BASE
-        bool "AtomS3 + Echo Base"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_ATOMS3R_ECHO_BASE
-        bool "AtomS3R + Echo Base"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_ATOMS3R_CAM_M12_ECHO_BASE
-        bool "AtomS3R CAM/M12 + Echo Base"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_ATOM_ECHOS3R
-        bool "AtomEchoS3R"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_ATOMMATRIX_ECHO_BASE
-        bool "AtomMatrix + Echo Base"
-        depends on IDF_TARGET_ESP32
+    # config BOARD_TYPE_M5STACK_CORE_TAB5
+    #     bool "M5Stack Tab5"
+    #     depends on IDF_TARGET_ESP32P4
+    # config BOARD_TYPE_ATOMS3_ECHO_BASE
+    #     bool "AtomS3 + Echo Base"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_ATOMS3R_ECHO_BASE
+    #     bool "AtomS3R + Echo Base"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_ATOMS3R_CAM_M12_ECHO_BASE
+    #     bool "AtomS3R CAM/M12 + Echo Base"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_ATOM_ECHOS3R
+    #     bool "AtomEchoS3R"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_ATOMMATRIX_ECHO_BASE
+    #     bool "AtomMatrix + Echo Base"
+    #     depends on IDF_TARGET_ESP32
     config BOARD_TYPE_ESP32S3_AUDIO_BOARD
         bool "Waveshare ESP32-S3-Audio-Board"
         depends on IDF_TARGET_ESP32S3
@@ -229,12 +229,12 @@ choice BOARD_TYPE
     config BOARD_TYPE_ESP32S3_Touch_LCD_1_46
         bool "Waveshare ESP32-S3-Touch-LCD-1.46"
         depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_ESP32C6_LCD_1_69
-        bool "Waveshare ESP32-C6-LCD-1.69"
-        depends on IDF_TARGET_ESP32C6
-    config BOARD_TYPE_ESP32C6_Touch_AMOLED_1_43
-        bool "Waveshare ESP32-C6-Touch-AMOLOED-1.43"
-        depends on IDF_TARGET_ESP32C6
+    # config BOARD_TYPE_ESP32C6_LCD_1_69
+    #     bool "Waveshare ESP32-C6-LCD-1.69"
+    #     depends on IDF_TARGET_ESP32C6
+    # config BOARD_TYPE_ESP32C6_Touch_AMOLED_1_43
+    #     bool "Waveshare ESP32-C6-Touch-AMOLOED-1.43"
+    #     depends on IDF_TARGET_ESP32C6
     config BOARD_TYPE_ESP32S3_Touch_LCD_3_49
         bool "Waveshare ESP32-S3-Touch-LCD-3.49"
         depends on IDF_TARGET_ESP32S3
@@ -244,20 +244,20 @@ choice BOARD_TYPE
     config BOARD_TYPE_ESP32S3_Touch_LCD_3_5B
         bool "Waveshare ESP32-S3-Touch-LCD-3.5B"
         depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_ESP32P4_NANO
-        bool "Waveshare ESP32-P4-NANO"
-        depends on IDF_TARGET_ESP32P4
-    config BOARD_TYPE_ESP32P4_WIFI6_Touch_LCD_4B
-        bool "Waveshare ESP32-P4-WIFI6-Touch-LCD-4B"
-    config BOARD_TYPE_ESP32P4_WIFI6_Touch_LCD_7B
-        bool "Waveshare ESP32-P4-WIFI6-Touch-LCD-7B"
-        depends on IDF_TARGET_ESP32P4
-    config BOARD_TYPE_ESP32P4_WIFI6_Touch_LCD_XC
-        bool "Waveshare ESP32-P4-WIFI6-Touch-LCD-3.4C or ESP32-P4-WIFI6-Touch-LCD-4C"
-        depends on IDF_TARGET_ESP32P4
-    config BOARD_TYPE_TUDOUZI
-        bool "土豆子"
-        depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_ESP32P4_NANO
+    #     bool "Waveshare ESP32-P4-NANO"
+    #     depends on IDF_TARGET_ESP32P4
+    # config BOARD_TYPE_ESP32P4_WIFI6_Touch_LCD_4B
+    #     bool "Waveshare ESP32-P4-WIFI6-Touch-LCD-4B"
+    # config BOARD_TYPE_ESP32P4_WIFI6_Touch_LCD_7B
+    #     bool "Waveshare ESP32-P4-WIFI6-Touch-LCD-7B"
+    #     depends on IDF_TARGET_ESP32P4
+    # config BOARD_TYPE_ESP32P4_WIFI6_Touch_LCD_XC
+    #     bool "Waveshare ESP32-P4-WIFI6-Touch-LCD-3.4C or ESP32-P4-WIFI6-Touch-LCD-4C"
+    #     depends on IDF_TARGET_ESP32P4
+    # config BOARD_TYPE_TUDOUZI
+    #     bool "土豆子"
+    #     depends on IDF_TARGET_ESP32S3
     config BOARD_TYPE_LILYGO_T_CIRCLE_S3
         bool "LILYGO T-Circle-S3"
         depends on IDF_TARGET_ESP32S3
@@ -273,15 +273,15 @@ choice BOARD_TYPE
     config BOARD_TYPE_LILYGO_T_DISPLAY_S3_PRO_MVSRLORA_NO_BATTERY
         bool "LILYGO T-Display-S3-Pro-MVSRLora_No_Battery"
         depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_LILYGO_T_DISPLAY_P4
-        bool "LILYGO T-Display-P4"
-        depends on IDF_TARGET_ESP32P4
-    config BOARD_TYPE_MOVECALL_MOJI_ESP32S3
-        bool "Movecall Moji 小智AI衍生版"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_MOVECALL_CUICAN_ESP32S3
-        bool "Movecall CuiCan 璀璨·AI吊坠"
-        depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_LILYGO_T_DISPLAY_P4
+    #     bool "LILYGO T-Display-P4"
+    #     depends on IDF_TARGET_ESP32P4
+    # config BOARD_TYPE_MOVECALL_MOJI_ESP32S3
+    #     bool "Movecall Moji 小智AI衍生版"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_MOVECALL_CUICAN_ESP32S3
+    #     bool "Movecall CuiCan 璀璨·AI吊坠"
+    #     depends on IDF_TARGET_ESP32S3
     config BOARD_TYPE_ATK_DNESP32S3
         bool "正点原子DNESP32S3开发板"
         depends on IDF_TARGET_ESP32S3
@@ -294,51 +294,51 @@ choice BOARD_TYPE
     config BOARD_TYPE_ATK_DNESP32S3_BOX2_WIFI
         bool "正点原子DNESP32S3-BOX2-WIFI"
         depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_ATK_DNESP32S3_BOX2_4G
-        bool "正点原子DNESP32S3-BOX2-4G"
-        depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_ATK_DNESP32S3_BOX2_4G
+    #     bool "正点原子DNESP32S3-BOX2-4G"
+    #     depends on IDF_TARGET_ESP32S3
     config BOARD_TYPE_ATK_DNESP32S3M_WIFI
         bool "正点原子DNESP32S3M-WIFI"
         depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_ATK_DNESP32S3M_4G
-        bool "正点原子DNESP32S3M-4G"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_DU_CHATX
-        bool "嘟嘟开发板CHATX(wifi)"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_ESP32S3_Taiji_Pi
-        bool "太极小派esp32s3"
-        depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_ATK_DNESP32S3M_4G
+    #     bool "正点原子DNESP32S3M-4G"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_DU_CHATX
+    #     bool "嘟嘟开发板CHATX(wifi)"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_ESP32S3_Taiji_Pi
+    #     bool "太极小派esp32s3"
+    #     depends on IDF_TARGET_ESP32S3
     config BOARD_TYPE_XINGZHI_Cube_0_85TFT_WIFI
         bool "无名科技星智0.85(WIFI)"
         depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_XINGZHI_Cube_0_85TFT_ML307
-        bool "无名科技星智0.85(ML307)"
-        depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_XINGZHI_Cube_0_85TFT_ML307
+    #     bool "无名科技星智0.85(ML307)"
+    #     depends on IDF_TARGET_ESP32S3
     config BOARD_TYPE_XINGZHI_Cube_0_96OLED_WIFI
         bool "无名科技星智0.96(WIFI)"
         depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_XINGZHI_Cube_0_96OLED_ML307
-        bool "无名科技星智0.96(ML307)"
-        depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_XINGZHI_Cube_0_96OLED_ML307
+    #     bool "无名科技星智0.96(ML307)"
+    #     depends on IDF_TARGET_ESP32S3
     config BOARD_TYPE_XINGZHI_Cube_1_54TFT_WIFI
         bool "无名科技星智1.54(WIFI)"
         depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_XINGZHI_Cube_1_54TFT_ML307
-        bool "无名科技星智1.54(ML307)"
-        depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_XINGZHI_Cube_1_54TFT_ML307
+    #     bool "无名科技星智1.54(ML307)"
+    #     depends on IDF_TARGET_ESP32S3
     config BOARD_TYPE_SENSECAP_WATCHER
         bool "SenseCAP Watcher"
         depends on IDF_TARGET_ESP32S3
     config BOARD_TYPE_DOIT_S3_AIBOX
         bool "四博智联AI陪伴盒子"
         depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_MIXGO_NOVA
-        bool "元控·青春"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_GENJUTECH_S3_1_54TFT
-        bool "亘具科技1.54(s3)"
-        depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_MIXGO_NOVA
+    #     bool "元控·青春"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_GENJUTECH_S3_1_54TFT
+    #     bool "亘具科技1.54(s3)"
+    #     depends on IDF_TARGET_ESP32S3
     config BOARD_TYPE_ESP_S3_LCD_EV_Board
         bool "乐鑫ESP S3 LCD EV Board开发板"
         depends on IDF_TARGET_ESP32S3
@@ -348,9 +348,9 @@ choice BOARD_TYPE
     config BOARD_TYPE_ZHENGCHEN_1_54TFT_WIFI
         bool "征辰科技1.54(WIFI)"
         depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_ZHENGCHEN_1_54TFT_ML307
-        bool "征辰科技1.54(ML307)"
-        depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_ZHENGCHEN_1_54TFT_ML307
+    #     bool "征辰科技1.54(ML307)"
+    #     depends on IDF_TARGET_ESP32S3
     config BOARD_TYPE_MINSI_K08_DUAL
         bool "敏思科技K08(DUAL)"
         depends on IDF_TARGET_ESP32S3
@@ -360,29 +360,29 @@ choice BOARD_TYPE
     config BOARD_TYPE_ESP32_S3_1_28_BOX
         bool "Spotpear ESP32-S3-1.28-BOX"
         depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_OTTO_ROBOT
-        bool "ottoRobot"
-        depends on IDF_TARGET_ESP32S3
-        select LV_USE_GIF
-        select LV_GIF_CACHE_DECODE_DATA
-    config BOARD_TYPE_ELECTRON_BOT
-        bool "electronBot"
-        depends on IDF_TARGET_ESP32S3
-        select LV_USE_GIF
-        select LV_GIF_CACHE_DECODE_DATA
-    config BOARD_TYPE_JIUCHUAN
-        bool "九川智能"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_LABPLUS_MPYTHON_V3
-        bool "labplus mpython_v3 board"
-        depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_LABPLUS_LEDONG_V2
-        bool "labplus ledong_v2 board"
-        depends on IDF_TARGET_ESP32S3
-    depends on IDF_TARGET_ESP32S3
-    config BOARD_TYPE_SURFER_C3_1_14TFT
-        bool "Surfer-C3-1.14TFT"
-        depends on IDF_TARGET_ESP32C3
+    # config BOARD_TYPE_OTTO_ROBOT
+    #     bool "ottoRobot"
+    #     depends on IDF_TARGET_ESP32S3
+    #     select LV_USE_GIF
+    #     select LV_GIF_CACHE_DECODE_DATA
+    # config BOARD_TYPE_ELECTRON_BOT
+    #     bool "electronBot"
+    #     depends on IDF_TARGET_ESP32S3
+    #     select LV_USE_GIF
+    #     select LV_GIF_CACHE_DECODE_DATA
+    # config BOARD_TYPE_JIUCHUAN
+    #     bool "九川智能"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_LABPLUS_MPYTHON_V3
+    #     bool "labplus mpython_v3 board"
+    #     depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_LABPLUS_LEDONG_V2
+    #     bool "labplus ledong_v2 board"
+    #     depends on IDF_TARGET_ESP32S3
+    # depends on IDF_TARGET_ESP32S3
+    # config BOARD_TYPE_SURFER_C3_1_14TFT
+    #     bool "Surfer-C3-1.14TFT"
+    #     depends on IDF_TARGET_ESP32C3
     config BOARD_TYPE_YUNLIAO_S3
         bool "小智云聊-S3"
         depends on IDF_TARGET_ESP32S3
