@@ -54,7 +54,7 @@ class ESPHomeDevice
 
         uint8_t _outputVolume = 70;
 
-        bool _continuousDialogue = false;
+        bool _continuousDialogue = true;
 
         bool _voiceResponseSound = false;
 
