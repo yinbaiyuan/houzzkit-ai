@@ -413,6 +413,7 @@ void BLEManager::registerProto()
         auto &wifi_station = WifiConfigurationAp::GetInstance();
         std::string ssid_str = _protoParse.popString8();
         std::string password_str = _protoParse.popString8();
+        Application::GetInstance().Alert(Lang::Strings::WIFI_CONFIG_MODE, Lang::Strings::WIFI_CONFIG_MODE_CONNECTING, "gear", Lang::Sounds::OGG_POPUP);
         if (wifi_station.ConnectToWifi(ssid_str, password_str))
         {
             wifi_station.Save(ssid_str, password_str);
@@ -427,6 +428,11 @@ void BLEManager::registerProto()
         }
         else
         {
+            std::string hint = Lang::Strings::BLE_NET_CONFIG;
+            hint += "\n";
+            hint += Board::GetInstance().getDeviceName();
+            hint += "\n\n";
+            Application::GetInstance().Alert(Lang::Strings::WIFI_CONFIG_MODE, hint.c_str(), "gear", Lang::Sounds::OGG_EXCLAMATION);
             _protoParse.protoBegin(CMD_CONNECT_WIFI).pushUint8(1).protoSend();
         }
         return true;

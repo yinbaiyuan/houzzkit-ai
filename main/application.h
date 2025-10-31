@@ -66,6 +66,8 @@ public:
 
     void startOtaUpgrade(const std::string& url, const std::string& version);
     bool otaUpgrade();
+    void playVoiceText(const std::string& text);
+    void executeCommandText(const std::string& command);
 
 private:
     Application();

@@ -32,6 +32,10 @@ class ESPHomeDevice
 
         void setIdleScreenOff(bool enabled);
 
+        void setPlayVoiceText(const std::string &value);
+
+        void setExecuteCommandText(const std::string &value);
+
         bool micEnabled() const { return _micEnabled; } 
         
         uint8_t outputVolume() const { return _outputVolume; }
@@ -50,7 +54,7 @@ class ESPHomeDevice
 
         uint8_t _outputVolume = 70;
 
-        bool _continuousDialogue = false;
+        bool _continuousDialogue = true;
 
         bool _voiceResponseSound = false;
 

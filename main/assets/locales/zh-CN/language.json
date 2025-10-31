@@ -30,6 +30,7 @@
         "CONNECT_TO_HOTSPOT": "手机连接热点 ",
         "ACCESS_VIA_BROWSER": "，浏览器访问 ",
         "WIFI_CONFIG_MODE": "配网模式",
+        "WIFI_CONFIG_MODE_CONNECTING": "配网中...",
         "ENTERING_WIFI_CONFIG_MODE": "进入配网模式...",
         "SCANNING_WIFI": "扫描 Wi-Fi...",
         "NEW_VERSION": "新版本 ",
@@ -57,6 +58,8 @@
 
         "ESPHOME_ENTITY_BUTTON_NAME_WAKEUP":"唤醒",
         "ESPHOME_ENTITY_SWITCH_NAME_MIC_ENABLE":"麦克风开关",
-        "ESPHOME_ENTITY_NUMBER_NAME_VOLUME":"音量"
+        "ESPHOME_ENTITY_NUMBER_NAME_VOLUME":"音量",
+        "ESPHOME_ENTITY_TEXT_NAME_PLAY_VOICE":"播放语音",
+        "ESPHOME_ENTITY_TEXT_NAME_EXECUTE_COMMAND":"执行命令"
     }
 }
