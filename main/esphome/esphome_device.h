@@ -36,6 +36,8 @@ class ESPHomeDevice
 
         void setExecuteCommandText(const std::string &value);
 
+        void setAskAndExecuteCommandText(const std::string &value);
+
         bool micEnabled() const { return _micEnabled; } 
         
         uint8_t outputVolume() const { return _outputVolume; }

@@ -88,6 +88,11 @@ void Protocol::sendExecuteCommandText(const std::string& command) {
     SendText(message);
 }
 
+void Protocol::sendAskAndExecuteCommandText(const std::string& command) {
+    std::string message = "{\"session_id\":\"" + session_id_ + "\",\"type\":\"front_speaker_order\",\"text\":\"" + command + "\"}";
+    SendText(message);
+}
+
 
 
 bool Protocol::IsTimeout() const {

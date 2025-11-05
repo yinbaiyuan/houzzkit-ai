@@ -67,6 +67,16 @@ public:
 
 ExecuteCommandText *execute_command_text_id;
 
+class AskAndExecuteCommandText : public esphome::text::Text
+{
+public:
+  void control(const std::string &value) override
+  {
+    ESPHomeDevice::GetInstance().setAskAndExecuteCommandText(value);
+  };
+};
+
+AskAndExecuteCommandText *ask_and_execute_command_text_id;
 
 
 ESPHomeDevice &ESPHomeDevice::GetInstance()
@@ -109,7 +119,7 @@ void ESPHomeDevice::setup()
   esphome::App.pre_setup(device_name, device_name, "", "", __DATE__ ", " __TIME__, false);
 
   // 预留组件内存空间
-  esphome::App.reserve_components(6);
+  esphome::App.reserve_components(7);
 
   initProperties();
 
@@ -159,7 +169,7 @@ void ESPHomeDevice::setup()
   play_voice_text_id->set_object_id("play_voice_text");
   play_voice_text_id->set_disabled_by_default(false);
   play_voice_text_id->traits.set_min_length(0);
-  play_voice_text_id->traits.set_max_length(50);
+  play_voice_text_id->traits.set_max_length(100);
   play_voice_text_id->traits.set_mode(esphome::text::TEXT_MODE_TEXT);
   play_voice_text_id->publish_state("");
 
@@ -169,9 +179,20 @@ void ESPHomeDevice::setup()
   execute_command_text_id->set_object_id("execute_command_text");
   execute_command_text_id->set_disabled_by_default(false);
   execute_command_text_id->traits.set_min_length(0);
-  execute_command_text_id->traits.set_max_length(50);
+  execute_command_text_id->traits.set_max_length(100);
   execute_command_text_id->traits.set_mode(esphome::text::TEXT_MODE_TEXT);
   execute_command_text_id->publish_state("");
+  
+  ask_and_execute_command_text_id = new AskAndExecuteCommandText();
+  esphome::App.register_text(ask_and_execute_command_text_id);
+  ask_and_execute_command_text_id->set_name(Lang::Strings::ESPHOME_ENTITY_TEXT_NAME_ASK_AND_EXECUTE_COMMAND);
+  ask_and_execute_command_text_id->set_object_id("ask_and_execute_command_text");
+  ask_and_execute_command_text_id->set_disabled_by_default(false);
+  ask_and_execute_command_text_id->traits.set_min_length(0);
+  ask_and_execute_command_text_id->traits.set_max_length(100);
+  ask_and_execute_command_text_id->traits.set_mode(esphome::text::TEXT_MODE_TEXT);
+  ask_and_execute_command_text_id->publish_state("");
+
 
   esphome::App.setup();
 }
@@ -249,19 +270,22 @@ void ESPHomeDevice::setIdleScreenOff(bool enabled)
       auto display = board.GetDisplay();
       display->setDisplayOnOff(!enabled);
   }
-
 }
 
 void ESPHomeDevice::setPlayVoiceText(const std::string &value)
 {
-  printf("PlayVoiceText: %s\n", value.c_str());
   Application::GetInstance().playVoiceText(value);
   play_voice_text_id->publish_state("");
 }
 
 void ESPHomeDevice::setExecuteCommandText(const std::string &value)
 {
-  printf("ExecuteCommandText: %s\n", value.c_str());
   Application::GetInstance().executeCommandText(value);
   execute_command_text_id->publish_state("");
+}
+
+void ESPHomeDevice::setAskAndExecuteCommandText(const std::string &value)
+{
+  Application::GetInstance().askAndExecuteCommandText(value);
+  ask_and_execute_command_text_id->publish_state("");
 }
