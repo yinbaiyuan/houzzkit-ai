@@ -97,7 +97,15 @@ void BLEManager::notifyIdleScreenOff(bool state)
     _protoParse.protoBegin(CMD_SET_DEVICE_PROPERTY).pushUint8(PROPERTY_IDLE_SCREEN_OFF).pushUint8(state).protoSend();
 }
 
+void BLEManager::notifySleepMode(bool state)
+{
+    _protoParse.protoBegin(CMD_SET_DEVICE_PROPERTY).pushUint8(PROPERTY_SLEEP_MODE).pushUint8(state).protoSend();
+}
 
+void BLEManager::notifySleepModeTimeInterval(uint32_t timeInterval)
+{
+    _protoParse.protoBegin(CMD_SET_DEVICE_PROPERTY).pushUint8(PROPERTY_SLEEP_MODE_TIME_INTERVAL).pushUint32(timeInterval).protoSend();
+}
 
 bool BLEManager::otaStart(const std::string &firmware_url, const std::string &version)
 {
@@ -394,6 +402,7 @@ void BLEManager::registerProto()
             .pushUint8(ESPHomeDevice::GetInstance().continuousDialogue() ? 1 : 0)
             .pushUint8(ESPHomeDevice::GetInstance().voiceResponseSound() ? 1 : 0)
             .pushUint8(ESPHomeDevice::GetInstance().idleScreenOff() ? 1 : 0)
+            .pushUint8(ESPHomeDevice::GetInstance().sleepMode() ? 1 : 0)
             .protoSend();
         return true;
     };
@@ -558,6 +567,20 @@ void BLEManager::registerProto()
         {
             uint8_t idleScreenOff = _protoParse.popUint8();
             ESPHomeDevice::GetInstance().setIdleScreenOff(idleScreenOff == 1);
+            result = true;
+        }
+        break;
+        case PROPERTY_SLEEP_MODE:
+        {
+            uint8_t sleepMode = _protoParse.popUint8();
+            ESPHomeDevice::GetInstance().setSleepMode(sleepMode == 1);
+            result = true;
+        }
+        break;
+        case PROPERTY_SLEEP_MODE_TIME_INTERVAL:
+        {
+            uint32_t sleepModeTimeInterval = _protoParse.popUint32();
+            ESPHomeDevice::GetInstance().setSleepModeTimeInterval(sleepModeTimeInterval);
             result = true;
         }
         break;

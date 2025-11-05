@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string>
+#include "sleep_mode_time_interval.h"
 
 class ESPHomeDevice
 {
@@ -38,6 +39,12 @@ class ESPHomeDevice
 
         void setAskAndExecuteCommandText(const std::string &value);
 
+        void setSleepMode(bool enabled);
+
+        void setSleepModeTimeInterval(uint32_t timeInterval);
+
+        void updateIsInSleepModeInterval();
+
         bool micEnabled() const { return _micEnabled; } 
         
         uint8_t outputVolume() const { return _outputVolume; }
@@ -47,6 +54,8 @@ class ESPHomeDevice
         bool voiceResponseSound() const { return _voiceResponseSound; }
 
         bool idleScreenOff() const { return _idleScreenOff; }
+
+        bool sleepMode() const { return _sleepMode; }
 
     private:
 
@@ -61,4 +70,10 @@ class ESPHomeDevice
         bool _voiceResponseSound = false;
 
         bool _idleScreenOff = false;
+
+        bool _sleepMode = false;
+
+        SleepModeTimeInterval _sleepModeTimeInterval;
+
+        bool _isInSleepModeInterval = false;
 };

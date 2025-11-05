@@ -102,6 +102,8 @@ void ESPHomeDevice::setupPreferences()
   _continuousDialogue = settings.GetBool("cDialogue", _continuousDialogue);
   _voiceResponseSound = false;//settings.GetBool("vrSound", _voiceResponseSound);//暂不开放
   _idleScreenOff = settings.GetBool("iSOff", _idleScreenOff);
+  _sleepMode = settings.GetBool("sleepMode", _sleepMode);
+  _sleepModeTimeInterval.setSleepModeTimeInterval(settings.getUint32("sleepModeTI", 0));
 }
 
 void ESPHomeDevice::initProperties()
@@ -223,7 +225,13 @@ void ESPHomeDevice::setOutputVolume(uint8_t volume)
   volume_number_id->publish_state(volume);
   auto &board = Board::GetInstance();
   auto codec = board.GetAudioCodec();
-  codec->SetOutputVolume(volume);
+  if (_sleepMode && _isInSleepModeInterval)
+  {
+    codec->SetOutputVolume(volume > 20 ? 20 : volume);
+  }else
+  {
+    codec->SetOutputVolume(volume);
+  }
   BLEManager::GetInstance().notifyVolume(volume);
   ESP_LOGI(TAG, "Set output volume to %d", volume);
 }
@@ -288,4 +296,46 @@ void ESPHomeDevice::setAskAndExecuteCommandText(const std::string &value)
 {
   Application::GetInstance().askAndExecuteCommandText(value);
   ask_and_execute_command_text_id->publish_state("");
+}
+
+void ESPHomeDevice::setSleepMode(bool enabled)
+{
+  _sleepMode = enabled;
+  Settings settings("esphome", true);
+  settings.SetBool("sleepMode", _sleepMode);
+  BLEManager::GetInstance().notifySleepMode(_sleepMode);
+}
+
+void ESPHomeDevice::setSleepModeTimeInterval(uint32_t timeInterval)
+{
+  _sleepModeTimeInterval.setSleepModeTimeInterval(timeInterval);
+  Settings settings("esphome", true);
+  settings.setUint32("sleepModeTI", _sleepModeTimeInterval.getSleepModeTimeInterval());
+  BLEManager::GetInstance().notifySleepModeTimeInterval(_sleepModeTimeInterval.getSleepModeTimeInterval());
+  updateIsInSleepModeInterval();
+}
+
+void ESPHomeDevice::updateIsInSleepModeInterval()
+{
+  if (!_sleepMode)
+  {
+    _isInSleepModeInterval = false;
+    return;
+  }
+  
+  time_t now = time(NULL);
+  struct tm* tm = localtime(&now);
+  if (tm->tm_year < 2025 - 1900) {
+    return;
+  }
+  uint32_t start = _sleepModeTimeInterval.startHour * 60 + _sleepModeTimeInterval.startMinute;
+  uint32_t end = _sleepModeTimeInterval.endHour * 60 + _sleepModeTimeInterval.endMinute + 24 * 60;
+  uint32_t current = tm->tm_hour * 60 + tm->tm_min;
+  if (current < start || current + 24 * 60 > end)
+  {
+    _isInSleepModeInterval = false;
+  }else
+  {
+    _isInSleepModeInterval = true;
+  }
 }
