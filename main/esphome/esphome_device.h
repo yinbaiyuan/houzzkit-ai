@@ -45,6 +45,8 @@ class ESPHomeDevice
 
         void updateIsInSleepModeInterval();
 
+        void updateOutputVolume();
+
         bool micEnabled() const { return _micEnabled; } 
         
         uint8_t outputVolume() const { return _outputVolume; }
@@ -56,6 +58,8 @@ class ESPHomeDevice
         bool idleScreenOff() const { return _idleScreenOff; }
 
         bool sleepMode() const { return _sleepMode; }
+
+        uint32_t sleepModeTimeInterval() { return _sleepModeTimeInterval.getSleepModeTimeInterval(); }
 
     private:
 

@@ -20,3 +20,17 @@ uint32_t SleepModeTimeInterval::getSleepModeTimeInterval()
 {
     return (startHour << 24) | (startMinute << 16) | (endHour << 8) | endMinute;
 }
+
+uint32_t SleepModeTimeInterval::startTime()
+{
+    return startHour * 60 + startMinute;
+}
+
+uint32_t SleepModeTimeInterval::endTime()
+{
+    uint32_t endTime = endHour * 60 + endMinute;
+    if (endTime < startTime()) {
+        endTime += 24 * 60;
+    }
+    return endTime;    
+}

@@ -403,6 +403,7 @@ void BLEManager::registerProto()
             .pushUint8(ESPHomeDevice::GetInstance().voiceResponseSound() ? 1 : 0)
             .pushUint8(ESPHomeDevice::GetInstance().idleScreenOff() ? 1 : 0)
             .pushUint8(ESPHomeDevice::GetInstance().sleepMode() ? 1 : 0)
+            .pushUint32(ESPHomeDevice::GetInstance().sleepModeTimeInterval())
             .protoSend();
         return true;
     };
@@ -584,7 +585,7 @@ void BLEManager::registerProto()
             result = true;
         }
         break;
-        default:
+        default:        
             break;
         }
         _protoParse.protoBegin(CMD_DEVICE_SETTINGS)

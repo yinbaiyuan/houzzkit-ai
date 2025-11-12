@@ -99,18 +99,18 @@ void ESPHomeDevice::setupPreferences()
 
   Settings settings("esphome", false);
   _micEnabled = settings.GetBool("micEnabled", _micEnabled);
+  _outputVolume = settings.GetInt("volume", _outputVolume);
   _continuousDialogue = settings.GetBool("cDialogue", _continuousDialogue);
   _voiceResponseSound = false;//settings.GetBool("vrSound", _voiceResponseSound);//暂不开放
   _idleScreenOff = settings.GetBool("iSOff", _idleScreenOff);
   _sleepMode = settings.GetBool("sleepMode", _sleepMode);
-  _sleepModeTimeInterval.setSleepModeTimeInterval(settings.getUint32("sleepModeTI", 0));
+  _sleepModeTimeInterval.setSleepModeTimeInterval(settings.getUint32("sleepModeTI", _sleepModeTimeInterval.getSleepModeTimeInterval()));
 }
 
 void ESPHomeDevice::initProperties()
 {
   auto &board = Board::GetInstance();
   auto codec = board.GetAudioCodec();
-  _outputVolume = codec->output_volume();
   codec->EnableInput(_micEnabled);
 }
 
@@ -222,9 +222,12 @@ void ESPHomeDevice::setNoisePsk(const std::string noise_psk)
 void ESPHomeDevice::setOutputVolume(uint8_t volume)
 {
   _outputVolume = volume;
+  Settings settings("esphome", true);
+  settings.SetInt("volume", _outputVolume);
   volume_number_id->publish_state(volume);
   auto &board = Board::GetInstance();
   auto codec = board.GetAudioCodec();
+  this->updateIsInSleepModeInterval();
   if (_sleepMode && _isInSleepModeInterval)
   {
     codec->SetOutputVolume(volume > 20 ? 20 : volume);
@@ -304,6 +307,7 @@ void ESPHomeDevice::setSleepMode(bool enabled)
   Settings settings("esphome", true);
   settings.SetBool("sleepMode", _sleepMode);
   BLEManager::GetInstance().notifySleepMode(_sleepMode);
+  updateOutputVolume();
 }
 
 void ESPHomeDevice::setSleepModeTimeInterval(uint32_t timeInterval)
@@ -312,7 +316,7 @@ void ESPHomeDevice::setSleepModeTimeInterval(uint32_t timeInterval)
   Settings settings("esphome", true);
   settings.setUint32("sleepModeTI", _sleepModeTimeInterval.getSleepModeTimeInterval());
   BLEManager::GetInstance().notifySleepModeTimeInterval(_sleepModeTimeInterval.getSleepModeTimeInterval());
-  updateIsInSleepModeInterval();
+  updateOutputVolume();
 }
 
 void ESPHomeDevice::updateIsInSleepModeInterval()
@@ -320,22 +324,29 @@ void ESPHomeDevice::updateIsInSleepModeInterval()
   if (!_sleepMode)
   {
     _isInSleepModeInterval = false;
-    return;
-  }
-  
-  time_t now = time(NULL);
-  struct tm* tm = localtime(&now);
-  if (tm->tm_year < 2025 - 1900) {
-    return;
-  }
-  uint32_t start = _sleepModeTimeInterval.startHour * 60 + _sleepModeTimeInterval.startMinute;
-  uint32_t end = _sleepModeTimeInterval.endHour * 60 + _sleepModeTimeInterval.endMinute + 24 * 60;
-  uint32_t current = tm->tm_hour * 60 + tm->tm_min;
-  if (current < start || current + 24 * 60 > end)
-  {
-    _isInSleepModeInterval = false;
   }else
   {
-    _isInSleepModeInterval = true;
+    time_t now = time(NULL);
+    struct tm* tm = localtime(&now);
+    if (tm->tm_year < 2025 - 1900) {
+      _isInSleepModeInterval = false;
+    }else
+    {
+      uint32_t startTime = _sleepModeTimeInterval.startTime();
+      uint32_t endTime = _sleepModeTimeInterval.endTime();
+      uint32_t current = tm->tm_hour * 60 + tm->tm_min;
+      if (current >= startTime && current <= endTime)
+      {
+        _isInSleepModeInterval = true;
+      }else
+      {
+        _isInSleepModeInterval = false;
+      }
+    }
   }
+}
+
+void ESPHomeDevice::updateOutputVolume()
+{
+  this->setOutputVolume(this->outputVolume());
 }
