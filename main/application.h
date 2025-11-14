@@ -68,6 +68,7 @@ public:
     bool otaUpgrade();
     void playVoiceText(const std::string& text);
     void executeCommandText(const std::string& command);
+    void askAndExecuteCommandText(const std::string& command);
 
 private:
     Application();

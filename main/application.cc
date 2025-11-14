@@ -500,6 +500,12 @@ void Application::Start() {
                         protocol_->CloseAudioChannel();
                     }
                 });
+            }else if (strcmp(state->valuestring, "listen_start") == 0) {
+                Schedule([this,display]() {
+                    // SetDeviceState(kDeviceStateListening);
+                    SetListeningMode(aec_mode_ == kAecOff ? kListeningModeAutoStop : kListeningModeRealtime);
+                    display->SetChatMessage("system", "");
+                });
             }
         } else if (strcmp(type->valuestring, "stt") == 0) {
             auto text = cJSON_GetObjectItem(root, "text");
@@ -669,12 +675,11 @@ void Application::MainEventLoop() {
             clock_ticks_++;
             auto display = Board::GetInstance().GetDisplay();
             display->UpdateStatusBar();
-        
             // Print the debug info every 10 seconds
             if (clock_ticks_ % 10 == 0) {
-                SystemInfo::PrintTaskCpuUsage(pdMS_TO_TICKS(1000));
+                // SystemInfo::PrintTaskCpuUsage(pdMS_TO_TICKS(1000));
                 // SystemInfo::PrintTaskList();
-                SystemInfo::PrintHeapStats();
+                // SystemInfo::PrintHeapStats();
             }
         }
     }
@@ -760,6 +765,18 @@ void Application::executeCommandText(const std::string& command) {
 }
 
 
+void Application::askAndExecuteCommandText(const std::string& command) {
+    audio_service_.EnableWakeWordDetection(false);
+    if (!protocol_->IsAudioChannelOpened()) {
+            SetDeviceState(kDeviceStateConnecting);
+            if (!protocol_->OpenAudioChannel()) {
+                audio_service_.EnableWakeWordDetection(true);
+                return;
+            }
+    }
+    protocol_->sendAskAndExecuteCommandText(command);
+}
+
 void Application::SetDeviceState(DeviceState state) {
 
     if (device_state_ == state) {
@@ -796,6 +813,7 @@ void Application::SetDeviceState(DeviceState state) {
             display->SetStatus(Lang::Strings::CONNECTING);
             display->SetEmotion("neutral");
             display->SetChatMessage("system", "");
+            ESPHomeDevice::GetInstance().updateOutputVolume();
             break;
         case kDeviceStateListening:
         {

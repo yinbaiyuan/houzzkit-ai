@@ -18,6 +18,10 @@ public:
     void EraseKey(const std::string& key);
     void EraseAll();
 
+    
+    uint32_t getUint32(const std::string& key, uint32_t default_value = 0);
+    void setUint32(const std::string& key, uint32_t value);
+
 private:
     std::string ns_;
     nvs_handle_t nvs_handle_ = 0;
