@@ -91,7 +91,7 @@ void WifiBoard::StartNetwork() {
         return;
     }
 
-    Settings settings("servers", false);
+    Settings settings("http", false);
     std::string httpUrl = settings.GetString("http_url");
     if (httpUrl.empty()) {
         wifi_config_mode_ = true;

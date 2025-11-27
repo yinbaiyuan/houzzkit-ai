@@ -41,7 +41,7 @@ Ota::~Ota() {
 }
 
 std::string Ota::GetCheckVersionUrl() {
-    Settings settings("servers", false);
+    Settings settings("http", false);
     std::string url = settings.GetString("http_url");
     return url;
 }
@@ -136,9 +136,9 @@ bool Ota::CheckVersion() {
         }
     }
 
-    Settings settings("servers", false);
+    Settings settings("mqtt", false);
     has_mqtt_config_ = false;;
-    if (!settings.GetString("mqtt_url").empty()) {
+    if (!settings.GetString("endpoint").empty()) {
         has_mqtt_config_ = true;
     } else {
         ESP_LOGI(TAG, "No mqtt section found !");

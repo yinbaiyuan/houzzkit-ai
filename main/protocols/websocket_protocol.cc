@@ -80,9 +80,9 @@ void WebsocketProtocol::CloseAudioChannel() {
 }
 
 bool WebsocketProtocol::OpenAudioChannel() {
-    Settings settings("servers", false);
+    Settings settings("websocket", false);
     std::string url = settings.GetString("ws_url");
-    std::string token = settings.GetString("token");
+    std::string token = settings.GetString("ws_token");
     int version = settings.GetInt("version");
     if (version != 0) {
         version_ = version;
