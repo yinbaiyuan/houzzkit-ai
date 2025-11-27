@@ -276,6 +276,11 @@ void AudioService::AudioOutputTask() {
         }
         codec_->OutputData(task->pcm);
 
+        if (wait_tts_stop_ && audio_playback_queue_.empty() && callbacks_.on_playback_end) {
+            callbacks_.on_playback_end();
+            wait_tts_stop_ = false;
+        }
+
         /* Update the last output time */
         last_output_time_ = std::chrono::steady_clock::now();
         debug_statistics_.playback_count++;

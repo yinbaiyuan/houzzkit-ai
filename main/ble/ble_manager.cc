@@ -453,14 +453,24 @@ void BLEManager::registerProto()
         _protoParse.setConfiguredWifi();
         std::string wsUrl = _protoParse.popString16();
         std::string token = _protoParse.popString8();
-        Settings settings("websocket", true);
-        if (settings.GetString("url") != wsUrl)
+        std::string mqttUrl = _protoParse.popString8();
+        std::string httpUrl = _protoParse.popString8();
+        Settings settings("servers", true);
+        if (settings.GetString("ws_url") != wsUrl)
         {
-            settings.SetString("url", wsUrl);
+            settings.SetString("ws_url", wsUrl);
         }
-        if (settings.GetString("token") != token)
+        if (settings.GetString("ws_token") != token)
         {
-            settings.SetString("token", token);
+            settings.SetString("ws_token", token);  
+        }
+        if (settings.GetString("mqtt_url") != mqttUrl)
+        {
+            settings.SetString("mqtt_url", mqttUrl);
+        }
+        if (settings.GetString("http_url") != httpUrl)
+        {
+            settings.SetString("http_url", httpUrl);
         }
         _protoParse.protoBegin(CMD_CONFIG_WEBSOCKET)
             .pushUint8(0)

@@ -41,11 +41,8 @@ Ota::~Ota() {
 }
 
 std::string Ota::GetCheckVersionUrl() {
-    Settings settings("wifi", false);
-    std::string url = settings.GetString("ota_url");
-    if (url.empty()) {
-        url = CONFIG_OTA_URL;
-    }
+    Settings settings("servers", false);
+    std::string url = settings.GetString("http_url");
     return url;
 }
 
@@ -139,45 +136,16 @@ bool Ota::CheckVersion() {
         }
     }
 
-    has_mqtt_config_ = false;
-    // 关闭 MQTT 服务支持
-    // cJSON *mqtt = cJSON_GetObjectItem(root, "mqtt");
-    // if (cJSON_IsObject(mqtt)) {
-    //     Settings settings("mqtt", true);
-    //     cJSON *item = NULL;
-    //     cJSON_ArrayForEach(item, mqtt) {
-    //         if (cJSON_IsString(item)) {
-    //             if (settings.GetString(item->string) != item->valuestring) {
-    //                 settings.SetString(item->string, item->valuestring);
-    //             }
-    //         } else if (cJSON_IsNumber(item)) {
-    //             if (settings.GetInt(item->string) != item->valueint) {
-    //                 settings.SetInt(item->string, item->valueint);
-    //             }
-    //         }
-    //     }
-    //     has_mqtt_config_ = true;
-    // } else {
-    //     ESP_LOGI(TAG, "No mqtt section found !");
-    // }
+    Settings settings("servers", false);
+    has_mqtt_config_ = false;;
+    if (!settings.GetString("mqtt_url").empty()) {
+        has_mqtt_config_ = true;
+    } else {
+        ESP_LOGI(TAG, "No mqtt section found !");
+    }
 
     has_websocket_config_ = false;
-    cJSON *websocket = cJSON_GetObjectItem(root, "websocket");
-    if (cJSON_IsObject(websocket)) {
-        // wss地址在蓝牙配网过程中分配
-        // Settings settings("websocket", true);
-        // cJSON *item = NULL;
-        // cJSON_ArrayForEach(item, websocket) {
-        //     if (cJSON_IsString(item)) {
-        //         if (settings.GetString(item->string) != item->valuestring) {
-        //             settings.SetString(item->string, item->valuestring);
-        //         }
-        //     } else if (cJSON_IsNumber(item)) {
-        //         if (settings.GetInt(item->string) != item->valueint) {
-        //             settings.SetInt(item->string, item->valueint);
-        //         }
-        //     }
-        // }
+    if (!settings.GetString("ws_url").empty()) {
         has_websocket_config_ = true;
     } else {
         ESP_LOGI(TAG, "No websocket section found!");
