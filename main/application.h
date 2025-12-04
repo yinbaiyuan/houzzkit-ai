@@ -25,6 +25,7 @@
 #define MAIN_EVENT_CHECK_NEW_VERSION_DONE (1 << 5)
 #define MAIN_EVENT_CLOCK_TICK (1 << 6)
 #define MAIN_START_OTA (1 << 7)
+#define MAIN_EVENT_PLAYBACK_END (1 << 8)
 
 enum AecMode {
     kAecOff,
@@ -68,6 +69,7 @@ public:
     bool otaUpgrade();
     void playVoiceText(const std::string& text);
     void executeCommandText(const std::string& command);
+    void askAndExecuteCommandText(const std::string& command);
 
 private:
     Application();

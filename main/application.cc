@@ -280,16 +280,20 @@ void Application::ToggleChatState() {
                 }
             }
 
-            SetListeningMode(aec_mode_ == kAecOff ? kListeningModeAutoStop : kListeningModeRealtime);
-        });
-    } else if (device_state_ == kDeviceStateSpeaking) {
-        Schedule([this]() {
-            AbortSpeaking(kAbortReasonNone);
-        });
-    } else if (device_state_ == kDeviceStateListening) {
-        Schedule([this]() {
-            protocol_->CloseAudioChannel();
-        });
+            SetListeningMode(aec_mode_ == kAecOff ? kListeningModeAutoStop : kListeningModeRealtime); });
+    }
+    else if (device_state_ == kDeviceStateSpeaking)
+    {
+        Schedule([this]()
+                { 
+                    AbortSpeaking(kAbortReasonNone); 
+                    SetDeviceState(kDeviceStateListening);
+                });
+    }
+    else if (device_state_ == kDeviceStateListening)
+    {
+        Schedule([this]()
+                 { protocol_->CloseAudioChannel(); });
     }
 }
 
@@ -381,6 +385,10 @@ void Application::Start() {
     callbacks.on_vad_change = [this](bool speaking) {
         xEventGroupSetBits(event_group_, MAIN_EVENT_VAD_CHANGE);
     };
+    callbacks.on_playback_end = [this]()
+    {
+        xEventGroupSetBits(event_group_, MAIN_EVENT_PLAYBACK_END);
+    };
     audio_service_.SetCallbacks(callbacks);
 
     // Start the main event loop task with priority 3
@@ -413,8 +421,8 @@ void Application::Start() {
     mcp_server.AddCommonTools();
     mcp_server.AddUserOnlyTools();
 
-    //TODO 等待实现MQTT协议
-    if (false) {
+    if (ota.HasMqttConfig())
+    {
         protocol_ = std::make_unique<MqttProtocol>();
     } else if (ota.HasWebsocketConfig()) {
         protocol_ = std::make_unique<WebsocketProtocol>();
@@ -465,20 +473,13 @@ void Application::Start() {
                 });
             } else if (strcmp(state->valuestring, "stop") == 0) {
                 Schedule([this]() {
-                    if (device_state_ == kDeviceStateSpeaking) {
-                        if (listening_mode_ == kListeningModeManualStop) {
-                            SetDeviceState(kDeviceStateIdle);
-                        } else {
-                            if (ESPHomeDevice::GetInstance().continuousDialogue())
-                            {
-                                SetDeviceState(kDeviceStateListening);
-                            }else{
-                                auto display = Board::GetInstance().GetDisplay();
-                                display->SetChatMessage("system", "");
-                                SetDeviceState(kDeviceStateIdle);
-                            }
-                        }
+                    if (audio_service_.IsAudioPlaybackQueueEmpty())
+                    {
+                        xEventGroupSetBits(event_group_, MAIN_EVENT_PLAYBACK_END);
+                    }else{
+                        audio_service_.SetWaitTtsStop();
                     }
+                    
                 });
             } else if (strcmp(state->valuestring, "sentence_start") == 0) {
                 auto text = cJSON_GetObjectItem(root, "text");
@@ -499,6 +500,12 @@ void Application::Start() {
                     if (protocol_) {
                         protocol_->CloseAudioChannel();
                     }
+                });
+            }else if (strcmp(state->valuestring, "listen_start") == 0) {
+                Schedule([this,display]() {
+                    // SetDeviceState(kDeviceStateListening);
+                    SetListeningMode(aec_mode_ == kAecOff ? kListeningModeAutoStop : kListeningModeRealtime);
+                    display->SetChatMessage("system", "");
                 });
             }
         } else if (strcmp(type->valuestring, "stt") == 0) {
@@ -600,18 +607,22 @@ void Application::Schedule(std::function<void()> callback) {
 // The Main Event Loop controls the chat state and websocket connection
 // If other tasks need to access the websocket or chat state,
 // they should use Schedule to call this function
-void Application::MainEventLoop() {
-    while (true) {
-        auto bits = xEventGroupWaitBits(event_group_, MAIN_EVENT_SCHEDULE |
-            MAIN_EVENT_SEND_AUDIO |
-            MAIN_EVENT_WAKE_WORD_DETECTED |
-            MAIN_EVENT_VAD_CHANGE |
-            MAIN_EVENT_CLOCK_TICK |
-            MAIN_EVENT_ERROR |
-            MAIN_START_OTA, pdTRUE, pdFALSE, portMAX_DELAY);
+void Application::MainEventLoop()
+{
+    while (true)
+    {
+        auto bits = xEventGroupWaitBits(event_group_, MAIN_EVENT_SCHEDULE | 
+            MAIN_EVENT_SEND_AUDIO | 
+            MAIN_EVENT_WAKE_WORD_DETECTED | 
+            MAIN_EVENT_VAD_CHANGE | 
+            MAIN_EVENT_CLOCK_TICK | 
+            MAIN_EVENT_ERROR | 
+            MAIN_START_OTA | 
+            MAIN_EVENT_PLAYBACK_END, pdTRUE, pdFALSE, portMAX_DELAY);
 
-        if (bits & MAIN_START_OTA) {
-            auto& board = Board::GetInstance();
+        if (bits & MAIN_START_OTA)
+        {
+            auto &board = Board::GetInstance();
             auto display = board.GetDisplay();
             if (otaUpgrade()) {
                 // Upgrade success, reboot immediately
@@ -669,12 +680,34 @@ void Application::MainEventLoop() {
             clock_ticks_++;
             auto display = Board::GetInstance().GetDisplay();
             display->UpdateStatusBar();
-        
             // Print the debug info every 10 seconds
             if (clock_ticks_ % 10 == 0) {
-                SystemInfo::PrintTaskCpuUsage(pdMS_TO_TICKS(1000));
+                // SystemInfo::PrintTaskCpuUsage(pdMS_TO_TICKS(1000));
                 // SystemInfo::PrintTaskList();
                 SystemInfo::PrintHeapStats();
+            }
+        }
+        if (bits & MAIN_EVENT_PLAYBACK_END)
+        {
+            if (device_state_ == kDeviceStateSpeaking)
+            {
+                if (listening_mode_ == kListeningModeManualStop)
+                {
+                    SetDeviceState(kDeviceStateIdle);
+                }
+                else
+                {
+                    if (ESPHomeDevice::GetInstance().continuousDialogue())
+                    {
+                        SetDeviceState(kDeviceStateListening);
+                    }
+                    else
+                    {
+                        auto display = Board::GetInstance().GetDisplay();
+                        display->SetChatMessage("system", "");
+                        SetDeviceState(kDeviceStateIdle);
+                    }
+                }
             }
         }
     }
@@ -760,6 +793,18 @@ void Application::executeCommandText(const std::string& command) {
 }
 
 
+void Application::askAndExecuteCommandText(const std::string& command) {
+    audio_service_.EnableWakeWordDetection(false);
+    if (!protocol_->IsAudioChannelOpened()) {
+            SetDeviceState(kDeviceStateConnecting);
+            if (!protocol_->OpenAudioChannel()) {
+                audio_service_.EnableWakeWordDetection(true);
+                return;
+            }
+    }
+    protocol_->sendAskAndExecuteCommandText(command);
+}
+
 void Application::SetDeviceState(DeviceState state) {
 
     if (device_state_ == state) {
@@ -778,52 +823,56 @@ void Application::SetDeviceState(DeviceState state) {
     auto display = board.GetDisplay();
     auto led = board.GetLed();
     led->OnStateChanged();
-    switch (state) {
-        case kDeviceStateUnknown:
-        case kDeviceStateIdle:
+    switch (state)
+    {
+    case kDeviceStateUnknown:
+    case kDeviceStateIdle:
+    {
+        display->SetStatus(Lang::Strings::STANDBY);
+        display->SetEmotion("neutral");
+        if (ESPHomeDevice::GetInstance().idleScreenOff())
         {
-            display->SetStatus(Lang::Strings::STANDBY);
-            display->SetEmotion("neutral");
-            if (ESPHomeDevice::GetInstance().idleScreenOff())
-            {
-                display->setDisplayOnOff(false);
-            }
-            audio_service_.EnableVoiceProcessing(false);
-            audio_service_.EnableWakeWordDetection(true);       
+            display->setDisplayOnOff(false);
         }
-            break;
-        case kDeviceStateConnecting:
-            display->SetStatus(Lang::Strings::CONNECTING);
-            display->SetEmotion("neutral");
-            display->SetChatMessage("system", "");
-            break;
-        case kDeviceStateListening:
+        audio_service_.EnableVoiceProcessing(false);
+        audio_service_.EnableWakeWordDetection(true);
+    }
+    break;
+    case kDeviceStateConnecting:
+        display->SetStatus(Lang::Strings::CONNECTING);
+        display->SetEmotion("neutral");
+        display->SetChatMessage("system", "");
+        ESPHomeDevice::GetInstance().updateOutputVolume();
+        break;
+    case kDeviceStateListening:
+    {
+        display->SetStatus(Lang::Strings::LISTENING);
+        display->SetEmotion("wakeup");
+        display->setDisplayOnOff(true);
+        // Make sure the audio processor is running
+        if (!audio_service_.IsAudioProcessorRunning())
         {
-            display->SetStatus(Lang::Strings::LISTENING);
-            display->SetEmotion("wakeup");
-            display->setDisplayOnOff(true);
-            // Make sure the audio processor is running
-            if (!audio_service_.IsAudioProcessorRunning()) {
-                // Send the start listening command
-                protocol_->SendStartListening(listening_mode_);
-                audio_service_.EnableVoiceProcessing(true);
-                audio_service_.EnableWakeWordDetection(false);
-            }
+            // Send the start listening command
+            protocol_->SendStartListening(listening_mode_);
+            audio_service_.EnableVoiceProcessing(true);
+            audio_service_.EnableWakeWordDetection(false);
         }
-            break;
-        case kDeviceStateSpeaking:
-            display->SetStatus(Lang::Strings::SPEAKING);
+    }
+    break;
+    case kDeviceStateSpeaking:
+        display->SetStatus(Lang::Strings::SPEAKING);
 
-            if (listening_mode_ != kListeningModeRealtime) {
-                audio_service_.EnableVoiceProcessing(false);
-                // Only AFE wake word can be detected in speaking mode
-                audio_service_.EnableWakeWordDetection(audio_service_.IsAfeWakeWord());
-            }
-            audio_service_.ResetDecoder();
-            break;
-        default:
-            // Do nothing
-            break;
+        if (listening_mode_ != kListeningModeRealtime)
+        {
+            audio_service_.EnableVoiceProcessing(false);
+            // Only AFE wake word can be detected in speaking mode
+            audio_service_.EnableWakeWordDetection(audio_service_.IsAfeWakeWord());
+        }
+        audio_service_.ResetDecoder();
+        break;
+    default:
+        // Do nothing
+        break;
     }
 }
 

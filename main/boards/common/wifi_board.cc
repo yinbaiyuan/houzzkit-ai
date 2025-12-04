@@ -91,6 +91,14 @@ void WifiBoard::StartNetwork() {
         return;
     }
 
+    Settings settings("http", false);
+    std::string httpUrl = settings.GetString("http_url");
+    if (httpUrl.empty()) {
+        wifi_config_mode_ = true;
+        EnterWifiConfigMode();
+        return;
+    }
+
     auto& wifi_station = WifiStation::GetInstance();
     wifi_station.OnScanBegin([this]() {
         auto display = Board::GetInstance().GetDisplay();

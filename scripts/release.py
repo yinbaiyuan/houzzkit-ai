@@ -3,6 +3,7 @@ import os
 import json
 import zipfile
 import argparse
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -66,6 +67,18 @@ def zip_bin(name: str, version: str) -> None:
     with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
         zipf.write("build/merged-binary.bin", arcname="merged-binary.bin")
     print(f"zip bin to {output_path} done")
+
+    ota_dir = Path(f"releases/v{version}-ota")
+    ota_dir.mkdir(parents=True,exist_ok=True)
+    bin_src = Path("build/houzzkit.bin")
+    if bin_src.exists():
+        bin_dst = ota_dir / f"{name}_v{version}.bin"
+        try:
+            shutil.copy2(bin_src, bin_dst)  # copy2保留文件元数据
+            print(f"copy {bin_src} to {bin_dst} done")
+        except Exception as e:
+            print(f"Error copying file: {e}")
+
 
 ################################################################################
 # board / variant related functions

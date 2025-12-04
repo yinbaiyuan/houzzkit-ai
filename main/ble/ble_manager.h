@@ -10,6 +10,8 @@ enum BLE_DEVICE_PROPERTY : uint8_t {
     PROPERTY_CONTINUOUS_DIALOGUE = 2,
     PROPERTY_VOICE_RESPONSE_SOUND = 3,
     PROPERTY_IDLE_SCREEN_OFF = 4,
+    PROPERTY_SLEEP_MODE = 5,
+    PROPERTY_SLEEP_MODE_TIME_INTERVAL = 6,
     PROPERTY_DEVICE_NAME = 100,
 };
 
@@ -105,6 +107,10 @@ public:
     void notifyVoiceResponseSound(bool state);
 
     void notifyIdleScreenOff(bool state);
+
+    void notifySleepMode(bool state);
+
+    void notifySleepModeTimeInterval(uint32_t timeInterval);
 
     void pushAccessPoints();
 

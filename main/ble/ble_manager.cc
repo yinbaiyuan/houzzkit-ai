@@ -13,6 +13,8 @@
 #include <random>
 #include <chrono>
 
+#include <cJSON.h>
+
 #define BLE_CONFIG_SERVICE_UUID "2F8A7C3C-9B6E-3A5F-8D2C-7E1B4F6A9C3D"
 #define CHARACTERISTIC_UUID_CONFIG "2F8A7C3D-9B6E-3A5F-8D2C-7E1B4F6A9C3D"
 #define BLE_UUID "2F8A7C4C-9B6E-3A5F-8D2C-7E1B4F6A9C3D"
@@ -97,7 +99,15 @@ void BLEManager::notifyIdleScreenOff(bool state)
     _protoParse.protoBegin(CMD_SET_DEVICE_PROPERTY).pushUint8(PROPERTY_IDLE_SCREEN_OFF).pushUint8(state).protoSend();
 }
 
+void BLEManager::notifySleepMode(bool state)
+{
+    _protoParse.protoBegin(CMD_SET_DEVICE_PROPERTY).pushUint8(PROPERTY_SLEEP_MODE).pushUint8(state).protoSend();
+}
 
+void BLEManager::notifySleepModeTimeInterval(uint32_t timeInterval)
+{
+    _protoParse.protoBegin(CMD_SET_DEVICE_PROPERTY).pushUint8(PROPERTY_SLEEP_MODE_TIME_INTERVAL).pushUint32(timeInterval).protoSend();
+}
 
 bool BLEManager::otaStart(const std::string &firmware_url, const std::string &version)
 {
@@ -394,6 +404,8 @@ void BLEManager::registerProto()
             .pushUint8(ESPHomeDevice::GetInstance().continuousDialogue() ? 1 : 0)
             .pushUint8(ESPHomeDevice::GetInstance().voiceResponseSound() ? 1 : 0)
             .pushUint8(ESPHomeDevice::GetInstance().idleScreenOff() ? 1 : 0)
+            .pushUint8(ESPHomeDevice::GetInstance().sleepMode() ? 1 : 0)
+            .pushUint32(ESPHomeDevice::GetInstance().sleepModeTimeInterval())
             .protoSend();
         return true;
     };
@@ -442,16 +454,43 @@ void BLEManager::registerProto()
     {
         _protoParse.setConfiguredWifi();
         std::string wsUrl = _protoParse.popString16();
-        std::string token = _protoParse.popString8();
-        Settings settings("websocket", true);
-        if (settings.GetString("url") != wsUrl)
-        {
-            settings.SetString("url", wsUrl);
+        std::string wsToken = _protoParse.popString8();
+        std::string httpUrl = _protoParse.popString8();
+        std::string mqttInfo = _protoParse.popString16();
+        
+        cJSON *mqttInfoRoot = cJSON_Parse(mqttInfo.c_str());
+        if (cJSON_IsObject(mqttInfoRoot)) {
+            Settings settings("mqtt", true);
+            cJSON *item = NULL;
+            cJSON_ArrayForEach(item, mqttInfoRoot) {
+                if (cJSON_IsString(item)) {
+                    if (settings.GetString(item->string) != item->valuestring) {
+                        settings.SetString(item->string, item->valuestring);
+                    }
+                } else if (cJSON_IsNumber(item)) {
+                    if (settings.GetInt(item->string) != item->valueint) {
+                        settings.SetInt(item->string, item->valueint);
+                    }
+                }
+            }
         }
-        if (settings.GetString("token") != token)
+
+        Settings settings_http("http", true);
+        if (settings_http.GetString("http_url") != httpUrl)
         {
-            settings.SetString("token", token);
+            settings_http.SetString("http_url", httpUrl);
         }
+
+        Settings settings_ws("websocket", true);
+        if (settings_ws.GetString("ws_url") != wsUrl)
+        {
+            settings_ws.SetString("ws_url", wsUrl);
+        }
+        if (settings_ws.GetString("ws_token") != wsToken)
+        {
+            settings_ws.SetString("ws_token", wsToken);  
+        }
+
         _protoParse.protoBegin(CMD_CONFIG_WEBSOCKET)
             .pushUint8(0)
             .protoSend();
@@ -561,7 +600,21 @@ void BLEManager::registerProto()
             result = true;
         }
         break;
-        default:
+        case PROPERTY_SLEEP_MODE:
+        {
+            uint8_t sleepMode = _protoParse.popUint8();
+            ESPHomeDevice::GetInstance().setSleepMode(sleepMode == 1);
+            result = true;
+        }
+        break;
+        case PROPERTY_SLEEP_MODE_TIME_INTERVAL:
+        {
+            uint32_t sleepModeTimeInterval = _protoParse.popUint32();
+            ESPHomeDevice::GetInstance().setSleepModeTimeInterval(sleepModeTimeInterval);
+            result = true;
+        }
+        break;
+        default:        
             break;
         }
         _protoParse.protoBegin(CMD_DEVICE_SETTINGS)

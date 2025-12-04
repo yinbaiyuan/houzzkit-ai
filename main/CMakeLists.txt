@@ -37,6 +37,7 @@ set(SOURCES "audio/audio_codec.cc"
             "assets.cc"
             "main.cc"
             "esphome/esphome_device.cc"
+            "esphome/sleep_mode_time_interval.cc"
             "ble/ble_manager.cc"
             "ble/proto_parse.cc"
             )
