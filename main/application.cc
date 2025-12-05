@@ -699,7 +699,10 @@ void Application::MainEventLoop()
                 {
                     if (ESPHomeDevice::GetInstance().continuousDialogue())
                     {
-                        SetDeviceState(kDeviceStateListening);
+                        if (listening_mode_ != kListeningModeRealtime)
+                        {
+                            SetDeviceState(kDeviceStateListening);
+                        }
                     }
                     else
                     {
