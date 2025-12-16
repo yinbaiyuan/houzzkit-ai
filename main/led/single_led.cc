@@ -118,6 +118,13 @@ void SingleLed::OnBlinkTimer() {
 
 void SingleLed::OnStateChanged() {
     auto& app = Application::GetInstance();
+
+    if (!app.isMicEnabled()) {
+        SetColor(HIGH_BRIGHTNESS, 0, 0);
+        TurnOn();
+        return;
+    }
+    
     auto device_state = app.GetDeviceState();
     switch (device_state) {
         case kDeviceStateStarting:
@@ -138,9 +145,9 @@ void SingleLed::OnStateChanged() {
         case kDeviceStateListening:
         case kDeviceStateAudioTesting:
             if (app.IsVoiceDetected()) {
-                SetColor(HIGH_BRIGHTNESS, 0, 0);
+                SetColor(0, 0, HIGH_BRIGHTNESS);
             } else {
-                SetColor(LOW_BRIGHTNESS, 0, 0);
+                SetColor(0, 0, LOW_BRIGHTNESS);
             }
             TurnOn();
             break;

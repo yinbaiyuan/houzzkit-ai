@@ -21,7 +21,15 @@ private:
     esp_codec_dev_handle_t input_dev_ = nullptr;
     std::mutex data_if_mutex_;
 
+    // 保存初始化参数，用于重新初始化ES7210
+    void* i2c_master_handle_;
+    uint8_t es7210_addr_;
+    uint8_t es8311_addr_;
+    gpio_num_t pa_pin_;
+    bool input_reference_;
+
     void CreateDuplexChannels(gpio_num_t mclk, gpio_num_t bclk, gpio_num_t ws, gpio_num_t dout, gpio_num_t din);
+    bool ReinitializeES7210(); // 重新初始化ES7210的方法
 
     virtual int Read(int16_t* dest, int samples) override;
     virtual int Write(const int16_t* data, int samples) override;
@@ -35,6 +43,8 @@ public:
     virtual void SetOutputVolume(int volume) override;
     virtual void EnableInput(bool enable) override;
     virtual void EnableOutput(bool enable) override;
+
+    virtual void Reinitialize() override;
 };
 
 #endif // _BOX_AUDIO_CODEC_H

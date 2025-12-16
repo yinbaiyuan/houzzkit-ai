@@ -26,6 +26,7 @@
 #define MAIN_EVENT_CLOCK_TICK (1 << 6)
 #define MAIN_START_OTA (1 << 7)
 #define MAIN_EVENT_PLAYBACK_END (1 << 8)
+#define MAIN_EVENT_MIC_ENABLED (1 << 9)
 
 enum AecMode {
     kAecOff,
@@ -71,6 +72,9 @@ public:
     void executeCommandText(const std::string& command);
     void askAndExecuteCommandText(const std::string& command);
 
+    void setMicEnabled(bool enabled);
+    bool isMicEnabled() const { return mic_enabled_; }
+
 private:
     Application();
     ~Application();
@@ -89,6 +93,7 @@ private:
     bool has_server_time_ = false;
     bool aborted_ = false;
     int clock_ticks_ = 0;
+    bool mic_enabled_ = true;
     TaskHandle_t check_new_version_task_handle_ = nullptr;
     TaskHandle_t main_event_loop_task_handle_ = nullptr;
     TaskHandle_t esphome_loop_task_handle_ = nullptr;
