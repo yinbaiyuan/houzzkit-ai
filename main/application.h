@@ -26,7 +26,6 @@
 #define MAIN_EVENT_CLOCK_TICK (1 << 6)
 #define MAIN_START_OTA (1 << 7)
 #define MAIN_EVENT_PLAYBACK_END (1 << 8)
-#define MAIN_EVENT_MIC_ENABLED (1 << 9)
 
 enum AecMode {
     kAecOff,

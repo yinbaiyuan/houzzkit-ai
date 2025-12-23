@@ -14,13 +14,7 @@ BoxAudioCodec::BoxAudioCodec(void* i2c_master_handle, int input_sample_rate, int
     input_channels_ = input_reference_ ? 2 : 1; // 输入通道数
     input_sample_rate_ = input_sample_rate;
     output_sample_rate_ = output_sample_rate;
-    input_gain_ = 60;
-
-    // 保存初始化参数
-    i2c_master_handle_ = i2c_master_handle;
-    es7210_addr_ = es7210_addr;
-    es8311_addr_ = es8311_addr;
-    pa_pin_ = pa_pin;
+    input_gain_ = 30;
 
     CreateDuplexChannels(mclk, bclk, ws, dout, din);
 
@@ -65,8 +59,21 @@ BoxAudioCodec::BoxAudioCodec(void* i2c_master_handle, int input_sample_rate, int
     output_dev_ = esp_codec_dev_new(&dev_cfg);
     assert(output_dev_ != NULL);
 
-    // 初始化ES7210
-    ReinitializeES7210();
+    // Input
+    i2c_cfg.addr = es7210_addr;
+    in_ctrl_if_ = audio_codec_new_i2c_ctrl(&i2c_cfg);
+    assert(in_ctrl_if_ != NULL);
+
+    es7210_codec_cfg_t es7210_cfg = {};
+    es7210_cfg.ctrl_if = in_ctrl_if_;
+    es7210_cfg.mic_selected = ES7210_SEL_MIC1 | ES7210_SEL_MIC2 | ES7210_SEL_MIC3 | ES7210_SEL_MIC4;
+    in_codec_if_ = es7210_codec_new(&es7210_cfg);
+    assert(in_codec_if_ != NULL);
+
+    dev_cfg.dev_type = ESP_CODEC_DEV_TYPE_IN;
+    dev_cfg.codec_if = in_codec_if_;
+    input_dev_ = esp_codec_dev_new(&dev_cfg);
+    assert(input_dev_ != NULL);
 
     ESP_LOGI(TAG, "BoxAudioDevice initialized");
 }
@@ -74,79 +81,15 @@ BoxAudioCodec::BoxAudioCodec(void* i2c_master_handle, int input_sample_rate, int
 BoxAudioCodec::~BoxAudioCodec() {
     ESP_ERROR_CHECK(esp_codec_dev_close(output_dev_));
     esp_codec_dev_delete(output_dev_);
-    
-    if (input_dev_ != nullptr) {
-        ESP_ERROR_CHECK(esp_codec_dev_close(input_dev_));
-        esp_codec_dev_delete(input_dev_);
-    }
+    ESP_ERROR_CHECK(esp_codec_dev_close(input_dev_));
+    esp_codec_dev_delete(input_dev_);
 
-    if (in_codec_if_ != nullptr) {
-        audio_codec_delete_codec_if(in_codec_if_);
-    }
-    if (in_ctrl_if_ != nullptr) {
-        audio_codec_delete_ctrl_if(in_ctrl_if_);
-    }
-    
+    audio_codec_delete_codec_if(in_codec_if_);
+    audio_codec_delete_ctrl_if(in_ctrl_if_);
     audio_codec_delete_codec_if(out_codec_if_);
     audio_codec_delete_ctrl_if(out_ctrl_if_);
     audio_codec_delete_gpio_if(gpio_if_);
     audio_codec_delete_data_if(data_if_);
-}
-
-bool BoxAudioCodec::ReinitializeES7210() {
-    std::lock_guard<std::mutex> lock(data_if_mutex_);
-    
-    // 如果之前已经初始化过，先清理资源
-    if (input_dev_ != nullptr) {
-        esp_codec_dev_close(input_dev_);
-        esp_codec_dev_delete(input_dev_);
-        input_dev_ = nullptr;
-    }
-    
-    if (in_codec_if_ != nullptr) {
-        audio_codec_delete_codec_if(in_codec_if_);
-        in_codec_if_ = nullptr;
-    }
-    
-    if (in_ctrl_if_ != nullptr) {
-        audio_codec_delete_ctrl_if(in_ctrl_if_);
-        in_ctrl_if_ = nullptr;
-    }
-    
-    // 重新初始化ES7210
-    audio_codec_i2c_cfg_t i2c_cfg = {
-        .port = (i2c_port_t)1,
-        .addr = es7210_addr_,
-        .bus_handle = i2c_master_handle_,
-    };
-    in_ctrl_if_ = audio_codec_new_i2c_ctrl(&i2c_cfg);
-    if (in_ctrl_if_ == NULL) {
-        ESP_LOGE(TAG, "Failed to create I2C control interface for ES7210");
-        return false;
-    }
-
-    es7210_codec_cfg_t es7210_cfg = {};
-    es7210_cfg.ctrl_if = in_ctrl_if_;
-    es7210_cfg.mic_selected = ES7210_SEL_MIC1 | ES7210_SEL_MIC2 | ES7210_SEL_MIC3 | ES7210_SEL_MIC4;
-    in_codec_if_ = es7210_codec_new(&es7210_cfg);
-    if (in_codec_if_ == NULL) {
-        ESP_LOGE(TAG, "Failed to create ES7210 codec interface");
-        return false;
-    }
-
-    esp_codec_dev_cfg_t dev_cfg = {
-        .dev_type = ESP_CODEC_DEV_TYPE_IN,
-        .codec_if = in_codec_if_,
-        .data_if = data_if_,
-    };
-    input_dev_ = esp_codec_dev_new(&dev_cfg);
-    if (input_dev_ == NULL) {
-        ESP_LOGE(TAG, "Failed to create ES7210 device");
-        return false;
-    }
-    
-    ESP_LOGI(TAG, "ES7210 reinitialized successfully");
-    return true;
 }
 
 void BoxAudioCodec::CreateDuplexChannels(gpio_num_t mclk, gpio_num_t bclk, gpio_num_t ws, gpio_num_t dout, gpio_num_t din) {
@@ -247,14 +190,7 @@ void BoxAudioCodec::EnableInput(bool enable) {
     if (enable == input_enabled_) {
         return;
     }
-    
     if (enable) {
-        // 当启用输入时，先检查是否需要重新初始化ES7210
-        // if (!ReinitializeES7210()) {
-        //     ESP_LOGE(TAG, "Failed to reinitialize ES7210, cannot enable input");
-        //     return;
-        // }
-        
         esp_codec_dev_sample_info_t fs = {
             .bits_per_sample = 16,
             .channel = 4,
@@ -268,9 +204,7 @@ void BoxAudioCodec::EnableInput(bool enable) {
         ESP_ERROR_CHECK(esp_codec_dev_open(input_dev_, &fs));
         ESP_ERROR_CHECK(esp_codec_dev_set_in_channel_gain(input_dev_, ESP_CODEC_DEV_MAKE_CHANNEL_MASK(0), input_gain_));
     } else {
-        if (input_dev_ != nullptr) {
-            ESP_ERROR_CHECK(esp_codec_dev_close(input_dev_));
-        }
+        ESP_ERROR_CHECK(esp_codec_dev_close(input_dev_));
     }
     AudioCodec::EnableInput(enable);
 }
@@ -297,27 +231,7 @@ void BoxAudioCodec::EnableOutput(bool enable) {
     AudioCodec::EnableOutput(enable);
 }
 
-void BoxAudioCodec::Reinitialize()
-{
-    ReinitializeES7210();
-}
-
 int BoxAudioCodec::Read(int16_t* dest, int samples) {
-        // 基本参数检查
-    if (dest == nullptr || samples <= 0) {
-        ESP_LOGE(TAG, "Read: Invalid parameters");
-        return 0;
-    }
-    
-    // 检查设备状态
-    if (!input_enabled_ || input_dev_ == nullptr) {
-        ESP_LOGE(TAG, "Read: Input not enabled or device null");
-        return 0;
-    }
-
-        // 使用互斥锁保护共享资源
-    std::lock_guard<std::mutex> lock(data_if_mutex_);
-
     if (input_enabled_) {
         ESP_ERROR_CHECK_WITHOUT_ABORT(esp_codec_dev_read(input_dev_, (void*)dest, samples * sizeof(int16_t)));
     }

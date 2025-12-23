@@ -618,8 +618,7 @@ void Application::MainEventLoop()
             MAIN_EVENT_CLOCK_TICK | 
             MAIN_EVENT_ERROR | 
             MAIN_START_OTA | 
-            MAIN_EVENT_PLAYBACK_END |
-            MAIN_EVENT_MIC_ENABLED, pdTRUE, pdFALSE, portMAX_DELAY);
+            MAIN_EVENT_PLAYBACK_END, pdTRUE, pdFALSE, portMAX_DELAY);
 
         if (bits & MAIN_START_OTA)
         {
@@ -713,12 +712,6 @@ void Application::MainEventLoop()
                     }
                 }
             }
-        }
-        if (bits & MAIN_EVENT_MIC_ENABLED)
-        {
-                auto& board = Board::GetInstance();
-                auto codec = board.GetAudioCodec();
-                codec->Reinitialize();
         }
     }
 }
@@ -817,10 +810,6 @@ void Application::askAndExecuteCommandText(const std::string& command) {
 void Application::setMicEnabled(bool enabled)
 {
     mic_enabled_ = enabled;
-    if (enabled)
-    {
-        xEventGroupSetBits(event_group_, MAIN_EVENT_MIC_ENABLED);
-    }
 }
 
 void Application::SetDeviceState(DeviceState state) {
