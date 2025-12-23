@@ -32,6 +32,10 @@ public:
     void CloseAudioChannel() override;
     bool IsAudioChannelOpened() const override;
 
+    virtual void sendPlayVoiceText(const std::string& text) override;
+    virtual void sendExecuteCommandText(const std::string& command) override;
+    virtual void sendAskAndExecuteCommandText(const std::string& command) override;
+
 private:
     EventGroupHandle_t event_group_handle_;
 
@@ -54,6 +58,8 @@ private:
 
     bool SendText(const std::string& text) override;
     std::string GetHelloMessage();
+
+    bool SendEmptyAudioPacket();
 };
 
 
