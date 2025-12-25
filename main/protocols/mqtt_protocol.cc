@@ -370,3 +370,34 @@ std::string MqttProtocol::DecodeHexString(const std::string& hex_string) {
 bool MqttProtocol::IsAudioChannelOpened() const {
     return udp_ != nullptr && !error_occurred_ && !IsTimeout();
 }
+
+bool MqttProtocol::SendEmptyAudioPacket() {
+    if (!IsAudioChannelOpened()) {
+        return false;
+    }    
+
+    auto packet = std::make_unique<AudioStreamPacket>();
+    packet->frame_duration = OPUS_FRAME_DURATION_MS;
+    packet->sample_rate = 16000;
+    packet->timestamp = 1;
+    packet->payload.resize(10, 0x01);
+    SendAudio(std::move(packet));
+
+    return true;   
+}
+
+void MqttProtocol::sendPlayVoiceText(const std::string& text)
+{
+    SendEmptyAudioPacket();
+    Protocol::sendPlayVoiceText(text);
+}
+void MqttProtocol::sendExecuteCommandText(const std::string& command)
+{
+    SendEmptyAudioPacket();
+    Protocol::sendExecuteCommandText(command);
+}
+void MqttProtocol::sendAskAndExecuteCommandText(const std::string& command)
+{
+    SendEmptyAudioPacket();
+    Protocol::sendAskAndExecuteCommandText(command);
+}
