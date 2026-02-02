@@ -208,6 +208,8 @@ std::string WebsocketProtocol::GetHelloMessage() {
     cJSON* features = cJSON_CreateObject();
 #if CONFIG_USE_SERVER_AEC
     cJSON_AddBoolToObject(features, "aec", true);
+#elif CONFIG_USE_DEVICE_AEC
+    cJSON_AddBoolToObject(features, "daec", true);
 #endif
     cJSON_AddBoolToObject(features, "mcp", true);
     cJSON_AddItemToObject(root, "features", features);

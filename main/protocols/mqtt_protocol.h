@@ -32,6 +32,10 @@ public:
     void CloseAudioChannel() override;
     bool IsAudioChannelOpened() const override;
 
+    virtual void sendPlayVoiceText(const std::string& text) override;
+    virtual void sendExecuteCommandText(const std::string& command) override;
+    virtual void sendAskAndExecuteCommandText(const std::string& command) override;
+
 private:
     EventGroupHandle_t event_group_handle_;
 
@@ -46,7 +50,10 @@ private:
     int udp_port_;
     uint32_t local_sequence_;
     uint32_t remote_sequence_;
-    esp_timer_handle_t reconnect_timer_;
+    esp_timer_handle_t reconnect_timer_;    
+    
+    std::unique_ptr<AudioStreamPacket> last_valid_packet_;
+    std::mutex last_packet_mutex_;
 
     bool StartMqttClient(bool report_error=false);
     void ParseServerHello(const cJSON* root);
@@ -54,6 +61,11 @@ private:
 
     bool SendText(const std::string& text) override;
     std::string GetHelloMessage();
+
+    bool SendEmptyAudioPacket();
+
+    void HandlePacketLoss(uint32_t lost_packets_count);
+
 };
 
 

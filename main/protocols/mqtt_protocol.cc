@@ -12,7 +12,7 @@
 
 MqttProtocol::MqttProtocol() {
     event_group_handle_ = xEventGroupCreate();
-
+    last_valid_packet_ = nullptr;
     // Initialize reconnect timer
     esp_timer_create_args_t reconnect_timer_args = {
         .callback = [](void* arg) {
@@ -28,6 +28,8 @@ MqttProtocol::MqttProtocol() {
         .arg = this,
     };
     esp_timer_create(&reconnect_timer_args, &reconnect_timer_);
+
+
 }
 
 MqttProtocol::~MqttProtocol() {
@@ -244,7 +246,9 @@ bool MqttProtocol::OpenAudioChannel() {
             return;
         }
         if (sequence != remote_sequence_ + 1) {
+            uint32_t lost_packets_count = sequence - remote_sequence_ - 1;
             ESP_LOGW(TAG, "Received audio packet with wrong sequence: %lu, expected: %lu", sequence, remote_sequence_ + 1);
+            HandlePacketLoss(lost_packets_count);
         }
 
         size_t decrypted_size = data.size() - aes_nonce_.size();
@@ -262,6 +266,12 @@ bool MqttProtocol::OpenAudioChannel() {
             ESP_LOGE(TAG, "Failed to decrypt audio data, ret: %d", ret);
             return;
         }
+
+        {
+            std::lock_guard<std::mutex> lock(last_packet_mutex_);
+            last_valid_packet_ = std::make_unique<AudioStreamPacket>(*packet);
+        }
+
         if (on_incoming_audio_ != nullptr) {
             on_incoming_audio_(std::move(packet));
         }
@@ -277,6 +287,32 @@ bool MqttProtocol::OpenAudioChannel() {
     return true;
 }
 
+void MqttProtocol::HandlePacketLoss(uint32_t lost_packets_count) {
+    //如果没有有效的前一帧，则无法进行补偿
+    std::unique_ptr<AudioStreamPacket> temp_packet_copy;
+    {
+        std::lock_guard<std::mutex> lock(last_packet_mutex_);
+        if (!last_valid_packet_) {
+            return; // 没有前一帧可复制
+        }
+        // 复制前一帧数据
+        temp_packet_copy = std::make_unique<AudioStreamPacket>(*last_valid_packet_);
+    }
+    
+    // 生成并发送丢失的帧
+    for (uint32_t i = 0; i < lost_packets_count; ++i) {
+        // 更新时间戳以保持音频同步
+        temp_packet_copy->timestamp = last_incoming_time_.time_since_epoch().count() + (i + 1) * temp_packet_copy->frame_duration * 1000; // 简化的时间戳更新
+        
+        if (on_incoming_audio_ != nullptr) {
+            // 传递复制的音频包以进行播放
+            on_incoming_audio_(std::make_unique<AudioStreamPacket>(*temp_packet_copy));
+        }
+        // 更新序列号
+        remote_sequence_++;
+    }
+}
+
 std::string MqttProtocol::GetHelloMessage() {
     // 发送 hello 消息申请 UDP 通道
     cJSON* root = cJSON_CreateObject();
@@ -286,6 +322,8 @@ std::string MqttProtocol::GetHelloMessage() {
     cJSON* features = cJSON_CreateObject();
 #if CONFIG_USE_SERVER_AEC
     cJSON_AddBoolToObject(features, "aec", true);
+#elif CONFIG_USE_DEVICE_AEC
+    cJSON_AddBoolToObject(features, "daec", true);
 #endif
     cJSON_AddBoolToObject(features, "mcp", true);
     cJSON_AddItemToObject(root, "features", features);
@@ -369,4 +407,36 @@ std::string MqttProtocol::DecodeHexString(const std::string& hex_string) {
 
 bool MqttProtocol::IsAudioChannelOpened() const {
     return udp_ != nullptr && !error_occurred_ && !IsTimeout();
+}
+
+
+bool MqttProtocol::SendEmptyAudioPacket() {
+    if (!IsAudioChannelOpened()) {
+        return false;
+    }    
+
+    auto packet = std::make_unique<AudioStreamPacket>();
+    packet->frame_duration = OPUS_FRAME_DURATION_MS;
+    packet->sample_rate = 16000;
+    packet->timestamp = 1;
+    packet->payload.resize(10, 0x01);
+    SendAudio(std::move(packet));
+
+    return true;   
+}
+
+void MqttProtocol::sendPlayVoiceText(const std::string& text)
+{
+    SendEmptyAudioPacket();
+    Protocol::sendPlayVoiceText(text);
+}
+void MqttProtocol::sendExecuteCommandText(const std::string& command)
+{
+    SendEmptyAudioPacket();
+    Protocol::sendExecuteCommandText(command);
+}
+void MqttProtocol::sendAskAndExecuteCommandText(const std::string& command)
+{
+    SendEmptyAudioPacket();
+    Protocol::sendAskAndExecuteCommandText(command);
 }
