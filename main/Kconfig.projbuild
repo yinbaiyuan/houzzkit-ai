@@ -223,6 +223,9 @@ choice BOARD_TYPE
     config BOARD_TYPE_ESP32S3_Touch_LCD_1_85C
         bool "Waveshare ESP32-S3-Touch-LCD-1.85C"
         depends on IDF_TARGET_ESP32S3
+    config BOARD_TYPE_ESP32S3_Touch_LCD_1_85C_V2
+        bool "Waveshare ESP32-S3-Touch-LCD-1.85C-V2"
+        depends on IDF_TARGET_ESP32S3
     config BOARD_TYPE_ESP32S3_Touch_LCD_1_85
         bool "Waveshare ESP32-S3-Touch-LCD-1.85"
         depends on IDF_TARGET_ESP32S3
@@ -518,7 +521,7 @@ choice DISPLAY_STYLE
 
     config USE_EMOTE_MESSAGE_STYLE
         bool "Emote animation style"
-        depends on BOARD_TYPE_ESP_BOX_3 || BOARD_TYPE_ECHOEAR || BOARD_TYPE_ESP32S3_Touch_LCD_1_85C
+        depends on BOARD_TYPE_ESP_BOX_3 || BOARD_TYPE_ECHOEAR || BOARD_TYPE_ESP32S3_Touch_LCD_1_85C || BOARD_TYPE_ESP32S3_Touch_LCD_1_85C_V2
 endchoice
 
 choice WAKE_WORD_TYPE
@@ -596,7 +599,7 @@ config USE_DEVICE_AEC
         || BOARD_TYPE_LICHUANG_DEV || BOARD_TYPE_ESP32S3_KORVO2_V3 || BOARD_TYPE_ESP32S3_Touch_AMOLED_1_75 \
         || BOARD_TYPE_ESP32S3_Touch_AMOLED_2_06 || BOARD_TYPE_ESP32S3_Touch_LCD_4B || BOARD_TYPE_ESP32P4_WIFI6_Touch_LCD_4B || BOARD_TYPE_ESP32P4_WIFI6_Touch_LCD_7B \
         || BOARD_TYPE_ESP32P4_WIFI6_Touch_LCD_XC || BOARD_TYPE_ESP_S3_LCD_EV_Board_2 || BOARD_TYPE_YUNLIAO_S3 \
-        || BOARD_TYPE_ECHOEAR || BOARD_TYPE_ESP32S3_Touch_LCD_3_49)
+        || BOARD_TYPE_ECHOEAR || BOARD_TYPE_ESP32S3_Touch_LCD_3_49 || BOARD_TYPE_ESP32S3_Touch_LCD_1_85C_V2)
     help
         To work properly, device-side AEC requires a clean output reference path from the speaker signal and physical acoustic isolation between the microphone and speaker.
 
