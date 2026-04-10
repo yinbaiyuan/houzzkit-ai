@@ -11,6 +11,12 @@
 
 本文基于仓库当前代码和 Git 历史整理，适合作为接手、汇报和后续深入阅读的入口材料。
 
+如果当前目标是“对齐最新官方 `xiaozhi server` 并准备联调”，建议与本文配套阅读：
+
+- [`docs/houzzkit/xiaozhi-server-sync.md`](houzzkit-ai/docs/houzzkit/xiaozhi-server-sync.md)
+- [`docs/houzzkit/official-vs-current.md`](houzzkit-ai/docs/houzzkit/official-vs-current.md)
+- [`docs/houzzkit/xiaozhi-server-sync.execplan.md`](houzzkit-ai/docs/houzzkit/xiaozhi-server-sync.execplan.md)
+
 ## 2. 项目定位
 
 `houzzkit-ai` 是一个面向 Home Assistant 的 AI 智能音箱固件项目，运行于 `ESP32` 系列芯片之上，整体基于 `ESP-IDF`，并集成了 `ESPHome` 能力。
@@ -286,7 +292,7 @@
 
 接手时应重点确认：
 
-- 当前线上主用的协议是哪套
+- 当前版本主用的协议是哪套
 - WebSocket 是否仍是保底方案
 - MQTT 和 UDP 结合后的排障手段是否已经沉淀
 
