@@ -10,6 +10,9 @@
 #include <freertos/task.h>
 #include <esp_network.h>
 #include <esp_log.h>
+#if CONFIG_IDF_TARGET_ESP32P4
+#include "esp_wifi_remote.h"
+#endif
 
 #include <font_awesome.h>
 #include <wifi_station.h>
@@ -21,6 +24,9 @@
 #include <esp_mac.h>
 
 static const char *TAG = "WifiBoard";
+#if !CONFIG_BT_ENABLED
+static const char *AP_ONLY_WIFI_CONFIG_HINT = "请连接设备热点后访问 http://192.168.4.1 配网";
+#endif
 
 WifiBoard::WifiBoard() {
     Settings settings("wifi", true);
@@ -46,11 +52,18 @@ void WifiBoard::EnterWifiConfigMode() {
     vTaskDelay(pdMS_TO_TICKS(1500));
 
     // 显示 WiFi 配置 AP 的 SSID 和 Web 服务器 URL
-    std::string hint = Lang::Strings::BLE_NET_CONFIG;
+    std::string hint;
+#if CONFIG_BT_ENABLED
+    hint = Lang::Strings::BLE_NET_CONFIG;
     hint += "\n";
-    // hint += Lang::Strings::DEVICE_NAME_IS;
     hint += getDeviceName();
     hint += "\n\n";
+#else
+    hint = AP_ONLY_WIFI_CONFIG_HINT;
+    hint += "\n";
+    hint += getDeviceName();
+    hint += "\n\n";
+#endif
     
     // 播报配置 WiFi 的提示
     application.Alert(Lang::Strings::WIFI_CONFIG_MODE, hint.c_str(), "gear", Lang::Sounds::OGG_WIFICONFIG);
@@ -66,8 +79,12 @@ void WifiBoard::EnterWifiConfigMode() {
     audio_wifi_config::ReceiveWifiCredentialsFromAudio(&application, &wifi_ap, display, channel);
     #endif
     
+#if CONFIG_BT_ENABLED
     BLEManager::GetInstance().start(getDeviceName(), true);
     BLEManager::GetInstance().setConfiguringWifi();
+#else
+    ESP_LOGI(TAG, "BLE is disabled, Wi-Fi provisioning uses AP/web only");
+#endif
 
     // Wait forever until reset after configuration
     while (true) {

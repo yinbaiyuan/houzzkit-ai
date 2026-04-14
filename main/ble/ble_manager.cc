@@ -457,8 +457,27 @@ void BLEManager::registerProto()
         std::string wsToken = _protoParse.popString8();
         std::string httpUrl = _protoParse.popString8();
         std::string mqttInfo = _protoParse.popString16();
-        
+
         cJSON *mqttInfoRoot = cJSON_Parse(mqttInfo.c_str());
+        bool hasMqttEndpoint = false;
+        if (cJSON_IsObject(mqttInfoRoot)) {
+            cJSON* endpoint = cJSON_GetObjectItem(mqttInfoRoot, "endpoint");
+            hasMqttEndpoint = cJSON_IsString(endpoint) && endpoint->valuestring != nullptr && endpoint->valuestring[0] != '\0';
+        }
+
+        bool hasWebsocketConfig = !wsUrl.empty();
+        bool hasHttpConfig = !httpUrl.empty();
+        if (!hasHttpConfig || (!hasWebsocketConfig && !hasMqttEndpoint)) {
+            ESP_LOGE(TAG, "Invalid provisioning payload, http_url empty: %d, ws_url empty: %d, mqtt endpoint present: %d",
+                !hasHttpConfig, !hasWebsocketConfig, hasMqttEndpoint);
+            Application::GetInstance().Alert(Lang::Strings::ERROR, "配网信息不完整，请重新下发服务器配置", "circle_xmark", Lang::Sounds::OGG_EXCLAMATION);
+            _protoParse.protoBegin(CMD_CONFIG_WEBSOCKET)
+                .pushUint8(1)
+                .protoSend();
+            cJSON_Delete(mqttInfoRoot);
+            return true;
+        }
+        
         if (cJSON_IsObject(mqttInfoRoot)) {
             Settings settings("mqtt", true);
             cJSON *item = NULL;
@@ -474,6 +493,7 @@ void BLEManager::registerProto()
                 }
             }
         }
+        cJSON_Delete(mqttInfoRoot);
 
         Settings settings_http("http", true);
         if (settings_http.GetString("http_url") != httpUrl)

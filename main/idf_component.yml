@@ -87,7 +87,10 @@ dependencies:
     - if: target in [esp32p4]
 
   ## houzzkit
-  h2zero/esp-nimble-cpp: ^2.3.2
+  h2zero/esp-nimble-cpp:
+    version: ^2.3.2
+    rules:
+    - if: target in [esp32, esp32s3, esp32p4]
   esphome:
     path: "../components/esphome"
   esp-wifi-connect:

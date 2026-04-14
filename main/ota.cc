@@ -145,7 +145,8 @@ bool Ota::CheckVersion() {
     }
 
     has_websocket_config_ = false;
-    if (!settings.GetString("ws_url").empty()) {
+    Settings websocket_settings("websocket", false);
+    if (!websocket_settings.GetString("ws_url").empty()) {
         has_websocket_config_ = true;
     } else {
         ESP_LOGI(TAG, "No websocket section found!");

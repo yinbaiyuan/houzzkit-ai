@@ -1,8 +1,13 @@
 #pragma once
 
+#include <cstdint>
+#include <functional>
+#include <map>
+#include <string>
+
+#if CONFIG_BT_ENABLED
 #include <NimBLEDevice.h>
 #include "proto_parse.h"
-#include <map>
 
 enum BLE_DEVICE_PROPERTY : uint8_t {
     PROPERTY_MIC_ENABLED = 0,
@@ -117,3 +122,56 @@ public:
     void stopPushAccessPoints();
 
 };
+
+#else
+
+class BLEManager
+{
+public:
+    BLEManager() = default;
+    ~BLEManager() = default;
+
+    static BLEManager& GetInstance();
+
+    void protoCheck();
+
+    void onRecvWifiConfig(std::function<bool(const std::string& ssid, const std::string& password)> callback);
+
+    void start(const std::string& deviceName, bool enableConfigService = false);
+
+    void stop();
+
+    void free();
+
+    void sendData(const uint8_t* data, size_t length);
+
+    void recvData(const std::string& data);
+
+    void setConfiguringWifi(bool eraseToken = false);
+
+    bool otaStart(const std::string& firmware_url, const std::string& version);
+
+    void otaProgress(uint8_t progress, uint16_t recent_read);
+
+    void registerProto();
+
+    void notifyMicSwitchState(bool state);
+
+    void notifyVolume(uint8_t volume);
+
+    void notifyContinuousDialogue(bool state);
+
+    void notifyVoiceResponseSound(bool state);
+
+    void notifyIdleScreenOff(bool state);
+
+    void notifySleepMode(bool state);
+
+    void notifySleepModeTimeInterval(uint32_t timeInterval);
+
+    void pushAccessPoints();
+
+    void stopPushAccessPoints();
+};
+
+#endif
