@@ -101,6 +101,9 @@ private:
     void CheckAssetsVersion();
     void ShowActivationCode(const std::string& code, const std::string& message);
     void SetListeningMode(ListeningMode mode);
+    AecMode GetEffectiveAecMode() const;
+    bool SupportsRealtimeListening() const;
+    ListeningMode GetPreferredChatListeningMode() const;
 };
 
 

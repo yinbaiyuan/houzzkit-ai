@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <cstdint>
 
 #include "audio_processor.h"
 #include "audio_codec.h"
@@ -27,6 +28,7 @@ public:
     void OnVadStateChange(std::function<void(bool speaking)> callback) override;
     size_t GetFeedSize() override;
     void EnableDeviceAec(bool enable) override;
+    bool SupportsDeviceAec() const override;
 
 private:
     EventGroupHandle_t event_group_ = nullptr;
@@ -37,6 +39,8 @@ private:
     AudioCodec* codec_ = nullptr;
     int frame_samples_ = 0;
     bool is_speaking_ = false;
+    bool supports_device_aec_ = false;
+    int64_t last_output_level_log_us_ = 0;
     std::vector<int16_t> output_buffer_;
 
     void AudioProcessorTask();

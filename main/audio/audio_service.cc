@@ -81,11 +81,18 @@ void AudioService::Start() {
 
 #if CONFIG_USE_AUDIO_PROCESSOR
     /* Start the audio input task */
+#if CONFIG_IDF_TARGET_ESP32P4
+    constexpr BaseType_t kAudioInputCore = 1;
+    constexpr UBaseType_t kAudioInputPriority = 5;
+#else
+    constexpr BaseType_t kAudioInputCore = 0;
+    constexpr UBaseType_t kAudioInputPriority = 8;
+#endif
     xTaskCreatePinnedToCore([](void* arg) {
         AudioService* audio_service = (AudioService*)arg;
         audio_service->AudioInputTask();
         vTaskDelete(NULL);
-    }, "audio_input", 2048 * 3, this, 8, &audio_input_task_handle_, 0);
+    }, "audio_input", 2048 * 3, this, kAudioInputPriority, &audio_input_task_handle_, kAudioInputCore);
 
     /* Start the audio output task */
     xTaskCreate([](void* arg) {
@@ -110,11 +117,19 @@ void AudioService::Start() {
 #endif
 
     /* Start the opus codec task */
+#if CONFIG_IDF_TARGET_ESP32P4
+    xTaskCreatePinnedToCore([](void* arg) {
+        AudioService* audio_service = (AudioService*)arg;
+        audio_service->OpusCodecTask();
+        vTaskDelete(NULL);
+    }, "opus_codec", 2048 * 13, this, 6, &opus_codec_task_handle_, 0);
+#else
     xTaskCreate([](void* arg) {
         AudioService* audio_service = (AudioService*)arg;
         audio_service->OpusCodecTask();
         vTaskDelete(NULL);
     }, "opus_codec", 2048 * 13, this, 2, &opus_codec_task_handle_);
+#endif
 }
 
 void AudioService::Stop() {
@@ -125,7 +140,7 @@ void AudioService::Stop() {
         AS_EVENT_AUDIO_PROCESSOR_RUNNING);
 
     std::lock_guard<std::mutex> lock(audio_queue_mutex_);
-    audio_encode_queue_.clear();
+    ResetUplinkLocked();
     audio_decode_queue_.clear();
     audio_playback_queue_.clear();
     audio_testing_queue_.clear();
@@ -358,7 +373,7 @@ void AudioService::OpusCodecTask() {
 
             if (task->type == kAudioTaskTypeEncodeToSendQueue) {
                 {
-                    std::lock_guard<std::mutex> lock(audio_queue_mutex_);
+                    std::lock_guard<std::mutex> send_lock(audio_queue_mutex_);
                     audio_send_queue_.push_back(std::move(packet));
                 }
                 if (callbacks_.on_send_queue_available) {
@@ -626,7 +641,8 @@ void AudioService::PlaySound(const std::string_view& ogg) {
 
 bool AudioService::IsIdle() {
     std::lock_guard<std::mutex> lock(audio_queue_mutex_);
-    return audio_encode_queue_.empty() && audio_decode_queue_.empty() && audio_playback_queue_.empty() && audio_testing_queue_.empty();
+    return audio_encode_queue_.empty() && audio_send_queue_.empty() &&
+        audio_decode_queue_.empty() && audio_playback_queue_.empty() && audio_testing_queue_.empty();
 }
 
 void AudioService::ResetDecoder() {
@@ -637,6 +653,32 @@ void AudioService::ResetDecoder() {
     audio_playback_queue_.clear();
     audio_testing_queue_.clear();
     audio_queue_cv_.notify_all();
+}
+
+void AudioService::ResetUplink() {
+    std::lock_guard<std::mutex> lock(audio_queue_mutex_);
+    ResetUplinkLocked();
+    audio_queue_cv_.notify_all();
+}
+
+void AudioService::ResetUplinkLocked() {
+    audio_encode_queue_.clear();
+    timestamp_queue_.clear();
+    audio_send_queue_.clear();
+}
+
+bool AudioService::SupportsDeviceAec() const {
+#if CONFIG_USE_DEVICE_AEC
+    if (codec_ == nullptr) {
+        return false;
+    }
+    if (!audio_processor_initialized_) {
+        return codec_->input_reference();
+    }
+    return audio_processor_ != nullptr && audio_processor_->SupportsDeviceAec();
+#else
+    return false;
+#endif
 }
 
 void AudioService::CheckAndUpdateAudioPowerState() {

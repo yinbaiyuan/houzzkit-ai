@@ -280,14 +280,14 @@ void Application::ToggleChatState() {
                 }
             }
 
-            SetListeningMode(aec_mode_ == kAecOff ? kListeningModeAutoStop : kListeningModeRealtime); });
+            SetListeningMode(GetPreferredChatListeningMode()); });
     }
     else if (device_state_ == kDeviceStateSpeaking)
     {
         Schedule([this]()
                 { 
                     AbortSpeaking(kAbortReasonNone); 
-                    SetDeviceState(kDeviceStateListening);
+                    SetListeningMode(GetPreferredChatListeningMode());
                 });
     }
     else if (device_state_ == kDeviceStateListening)
@@ -391,11 +391,18 @@ void Application::Start() {
     };
     audio_service_.SetCallbacks(callbacks);
 
-    // Start the main event loop task with priority 3
+    // Start the main event loop task
+#if CONFIG_IDF_TARGET_ESP32P4
+    xTaskCreatePinnedToCore([](void* arg) {
+        ((Application*)arg)->MainEventLoop();
+        vTaskDelete(NULL);
+    }, "main_event_loop", 2048 * 4, this, 5, &main_event_loop_task_handle_, 0);
+#else
     xTaskCreate([](void* arg) {
         ((Application*)arg)->MainEventLoop();
         vTaskDelete(NULL);
     }, "main_event_loop", 2048 * 4, this, 3, &main_event_loop_task_handle_);
+#endif
 
     /* Start the clock timer to update the status bar */
     esp_timer_start_periodic(clock_timer_handle_, 1000000);
@@ -453,6 +460,7 @@ void Application::Start() {
     });
     protocol_->OnAudioChannelClosed([this, &board]() {
         board.SetPowerSaveMode(true);
+        audio_service_.ResetUplink();
         Schedule([this]() {
             auto display = Board::GetInstance().GetDisplay();
             display->SetChatMessage("system", "");
@@ -504,7 +512,7 @@ void Application::Start() {
             }else if (strcmp(state->valuestring, "listen_start") == 0) {
                 Schedule([this,display]() {
                     // SetDeviceState(kDeviceStateListening);
-                    SetListeningMode(aec_mode_ == kAecOff ? kListeningModeAutoStop : kListeningModeRealtime);
+                    SetListeningMode(GetPreferredChatListeningMode());
                     display->SetChatMessage("system", "");
                 });
             }
@@ -583,6 +591,17 @@ void Application::Start() {
     /* Start BLE */
     BLEManager::GetInstance().start(board.getDeviceName());
 
+#if CONFIG_IDF_TARGET_ESP32P4
+    xTaskCreatePinnedToCore([](void* arg) {
+        ESPHomeDevice& esphomeDevice = ESPHomeDevice::GetInstance();
+        esphomeDevice.setup();
+        while (true)
+        {
+            esphomeDevice.loop();
+        }
+        vTaskDelete(NULL);
+    }, "esphome_loop", 2048 * 4, nullptr, 2, &esphome_loop_task_handle_, 0);
+#else
     xTaskCreate([](void* arg) {
         ESPHomeDevice& esphomeDevice = ESPHomeDevice::GetInstance();
         esphomeDevice.setup();
@@ -592,6 +611,7 @@ void Application::Start() {
         }
         vTaskDelete(NULL);
     }, "esphome_loop", 2048 * 4, nullptr, 4, &esphome_loop_task_handle_);
+#endif
 
 }
 
@@ -651,6 +671,7 @@ void Application::MainEventLoop()
         if (bits & MAIN_EVENT_SEND_AUDIO) {
             while (auto packet = audio_service_.PopPacketFromSendQueue()) {
                 if (protocol_ && !protocol_->SendAudio(std::move(packet))) {
+                    protocol_->CloseAudioChannel();
                     break;
                 }
             }
@@ -699,7 +720,7 @@ void Application::MainEventLoop()
                 {
                     if (ESPHomeDevice::GetInstance().continuousDialogue())
                     {
-                        SetDeviceState(kDeviceStateListening);
+                        SetListeningMode(GetPreferredChatListeningMode());
                     }
                     else
                     {
@@ -727,6 +748,7 @@ void Application::OnWakeWordDetected() {
     if (device_state_ == kDeviceStateIdle) {
         audio_service_.EncodeWakeWord();
         if (!protocol_->IsAudioChannelOpened()) {
+            ESP_LOGI(TAG, "Wake word trigger is opening audio channel from idle state");
             SetDeviceState(kDeviceStateConnecting);
             if (!protocol_->OpenAudioChannel()) {
                 audio_service_.EnableWakeWordDetection(true);
@@ -744,7 +766,7 @@ void Application::OnWakeWordDetected() {
         // protocol_->SendWakeWordDetected(wake_word);
         audio_service_.PlaySound(Lang::Sounds::OGG_POPUP);
         vTaskDelay(pdMS_TO_TICKS(500));//消除提示音误识别
-        SetListeningMode(aec_mode_ == kAecOff ? kListeningModeAutoStop : kListeningModeRealtime);
+        SetListeningMode(GetPreferredChatListeningMode());
         
 
         
@@ -753,6 +775,26 @@ void Application::OnWakeWordDetected() {
     } else if (device_state_ == kDeviceStateActivating) {
         SetDeviceState(kDeviceStateIdle);
     }
+}
+
+AecMode Application::GetEffectiveAecMode() const {
+    switch (aec_mode_) {
+    case kAecOnServerSide:
+        return kAecOnServerSide;
+    case kAecOnDeviceSide:
+        return audio_service_.SupportsDeviceAec() ? kAecOnDeviceSide : kAecOff;
+    case kAecOff:
+    default:
+        return kAecOff;
+    }
+}
+
+bool Application::SupportsRealtimeListening() const {
+    return GetEffectiveAecMode() != kAecOff;
+}
+
+ListeningMode Application::GetPreferredChatListeningMode() const {
+    return SupportsRealtimeListening() ? kListeningModeRealtime : kListeningModeAutoStop;
 }
 
 void Application::AbortSpeaking(AbortReason reason) {
@@ -764,6 +806,9 @@ void Application::AbortSpeaking(AbortReason reason) {
 }
 
 void Application::SetListeningMode(ListeningMode mode) {
+    if (mode == kListeningModeRealtime && !SupportsRealtimeListening()) {
+        mode = kListeningModeAutoStop;
+    }
     listening_mode_ = mode;
     SetDeviceState(kDeviceStateListening);
 }
@@ -854,6 +899,7 @@ void Application::SetDeviceState(DeviceState state) {
         {
             // Send the start listening command
             protocol_->SendStartListening(listening_mode_);
+            audio_service_.ResetUplink();
             audio_service_.EnableVoiceProcessing(true);
             audio_service_.EnableWakeWordDetection(false);
         }
@@ -862,7 +908,7 @@ void Application::SetDeviceState(DeviceState state) {
     case kDeviceStateSpeaking:
         display->SetStatus(Lang::Strings::SPEAKING);
 
-        if (listening_mode_ != kListeningModeRealtime)
+        if (!SupportsRealtimeListening() || listening_mode_ != kListeningModeRealtime)
         {
             audio_service_.EnableVoiceProcessing(false);
             // Only AFE wake word can be detected in speaking mode
@@ -1010,8 +1056,14 @@ void Application::SetAecMode(AecMode mode) {
             display->ShowNotification(Lang::Strings::RTC_MODE_ON);
             break;
         case kAecOnDeviceSide:
-            audio_service_.EnableDeviceAec(true);
-            display->ShowNotification(Lang::Strings::RTC_MODE_ON);
+            if (audio_service_.SupportsDeviceAec()) {
+                audio_service_.EnableDeviceAec(true);
+                display->ShowNotification(Lang::Strings::RTC_MODE_ON);
+            } else {
+                ESP_LOGW(TAG, "Device AEC is unavailable on the current audio path, falling back to half duplex listening");
+                audio_service_.EnableDeviceAec(false);
+                display->ShowNotification(Lang::Strings::RTC_MODE_OFF);
+            }
             break;
         }
 

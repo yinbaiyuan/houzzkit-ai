@@ -57,3 +57,7 @@ void NoAudioProcessor::EnableDeviceAec(bool enable) {
         ESP_LOGE(TAG, "Device AEC is not supported");
     }
 }
+
+bool NoAudioProcessor::SupportsDeviceAec() const {
+    return false;
+}

@@ -5,6 +5,7 @@
 #include <deque>
 #include <condition_variable>
 #include <chrono>
+#include <cstdint>
 #include <mutex>
 
 #include <freertos/FreeRTOS.h>
@@ -110,6 +111,8 @@ public:
     bool ReadAudioData(std::vector<int16_t>& data, int sample_rate, int samples);
     void ResetDecoder();
     void SetModelsList(srmodel_list_t* models_list);
+    void ResetUplink();
+    bool SupportsDeviceAec() const;
 
     void SetWaitTtsStop() { wait_tts_stop_ = true; }
     bool IsAudioPlaybackQueueEmpty() { return audio_playback_queue_.empty(); }
@@ -159,6 +162,7 @@ private:
     void AudioOutputTask();
     void OpusCodecTask();
     void PushTaskToEncodeQueue(AudioTaskType type, std::vector<int16_t>&& pcm);
+    void ResetUplinkLocked();
     void SetDecodeSampleRate(int sample_rate, int frame_duration);
     void CheckAndUpdateAudioPowerState();
 };

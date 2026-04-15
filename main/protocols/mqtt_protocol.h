@@ -15,6 +15,7 @@
 #include <string>
 #include <map>
 #include <mutex>
+#include <cstdint>
 
 #define MQTT_PING_INTERVAL_SECONDS 90
 #define MQTT_RECONNECT_INTERVAL_MS 60000
@@ -50,8 +51,8 @@ private:
     int udp_port_;
     uint32_t local_sequence_;
     uint32_t remote_sequence_;
-    esp_timer_handle_t reconnect_timer_;    
-    
+    esp_timer_handle_t reconnect_timer_;
+
     std::unique_ptr<AudioStreamPacket> last_valid_packet_;
     std::mutex last_packet_mutex_;
 

@@ -3,10 +3,12 @@
 
 #include <driver/gpio.h>
 
-#define AUDIO_INPUT_SAMPLE_RATE  24000
-#define AUDIO_OUTPUT_SAMPLE_RATE 24000
+// P4 上 AFE 和服务端链路都以 16k 为主，86 Panel 继续跑 24k 会引入持续重采样，
+// 在实际设备上更容易放大实时性问题。这里先对该板单独收敛到 16k/16k。
+#define AUDIO_INPUT_SAMPLE_RATE  16000
+#define AUDIO_OUTPUT_SAMPLE_RATE 16000
 
-#define AUDIO_INPUT_REFERENCE    true
+#define AUDIO_INPUT_REFERENCE    false
 
 #define AUDIO_I2S_GPIO_MCLK GPIO_NUM_13
 #define AUDIO_I2S_GPIO_WS GPIO_NUM_10
