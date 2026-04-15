@@ -4,6 +4,8 @@
 
 仓库规则见 [`houzzkit-ai/.agent/PLANS.md`](houzzkit-ai/.agent/PLANS.md)。本文件必须按该规范持续维护。
 
+配套复盘文档见 [`docs/houzzkit/esp32-p4-support-review-vs-main.md`](houzzkit-ai/docs/houzzkit/esp32-p4-support-review-vs-main.md)。该文档从 `main` 对比角度补充回答“公共代码是否影响其他芯片”“Ubuntu 打包机如何实际生效”“哪些地方值得后续继续收口”；本 ExecPlan 继续只负责最小接入实施过程和原始证据。
+
 ## Purpose / Big Picture
 
 目标是在不改现有业务流程的前提下，把仓库里已存在但尚未正式接通的 `esp32p4` 路径补齐，让现有 `Waveshare P4` 板型可以从 `Kconfig` 正常选中并完成编译，同时不影响现有 `esp32s3` 板型。完成后，`P4` 在 `BT` 关闭时仍然可以通过现有 AP/网页路径进入配网流程，而不会继续误提示用户使用 BLE 小程序。
@@ -69,6 +71,11 @@
 
 - 这类“芯片已半接入”的仓库，最常见的问题不是缺目录，而是入口被注释、组件宏错误和能力依赖写死
 - 对 `esp32p4` 这类使用远端 Wi-Fi/BT 方案的目标，很多“原本在 S3 上理所当然成立”的本地接口假设都需要重新校正
+
+补充摘要：
+
+- 从 `main` 对比角度看，本轮最关键的公共层变更集中在 BLE 按能力编译、音频上行链路收口和实时监听能力判断。
+- 这些公共改动会影响其他芯片，但当前判断属于“公共但安全”的修正，而不是把 `P4` 私有逻辑强塞到所有板型。
 
 ## Context and Orientation
 

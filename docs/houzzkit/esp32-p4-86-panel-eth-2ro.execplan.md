@@ -4,6 +4,8 @@
 
 仓库规则见 [`houzzkit-ai/.agent/PLANS.md`](houzzkit-ai/.agent/PLANS.md)。本文件必须按该规范持续维护。
 
+配套复盘文档见 [`docs/houzzkit/esp32-p4-support-review-vs-main.md`](houzzkit-ai/docs/houzzkit/esp32-p4-support-review-vs-main.md)。该文档从 `main` 对比角度补充回答“公共代码是否影响其他芯片”“Ubuntu 打包机应如何依赖 `release.py + config.json` 生效”“哪些公共实现只是后续可收口项”；本 ExecPlan 继续只负责 86 Panel 最小适配的实施过程和证据链。
+
 ## Purpose / Big Picture
 
 目标是在不继续混用 `4B` 固件的前提下，为 `Waveshare ESP32-P4-86-Panel-ETH-2RO` 补一个仓库内可选、可打包、可编译的最小板型，并优先让它走蓝牙配网。完成后，用户可以直接执行 `python3 scripts/release.py waveshare-p4-86-panel-eth-2ro --name waveshare-p4-86-panel-eth-2ro` 产出专用包，而不是再拿 `waveshare-p4-wifi6-touch-lcd-4b` 的固件冒充。
@@ -71,6 +73,11 @@
 
 - `P4` 的蓝牙配网问题关键不在业务代码，而在于构建阶段是否切到 `host-only` 思路
 - `release.py` 的目录名前缀约束会直接决定新板命名，先顺着脚本约束设计可以少很多额外改动
+
+补充摘要：
+
+- 从 `main` 对比角度看，`waveshare-p4-86-panel-eth-2ro` 的核心意义不是多加一个板目录，而是把 86 Panel 从“借用 4B 固件”切换为“独立板型 + 独立 OTA/发布通道”。
+- 对最终 Ubuntu 打包机发布来说，该板蓝牙和 hosted BLE 能力依赖 `config.json` 中追加的 `sdkconfig_append`，不能只靠默认 `sdkconfig.defaults.esp32p4`。
 
 ## Context and Orientation
 
