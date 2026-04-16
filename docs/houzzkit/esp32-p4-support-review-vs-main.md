@@ -72,6 +72,28 @@
 - 所有关闭 `CONFIG_BT_ENABLED` 的板型都会走这条公共路径，而不只是 `ESP32-P4`。
 - 这种影响是预期内的，方向是“按能力退化”，不是“按芯片强行分流”。
 
+#### 当前仓库中已能确认的受影响板型
+
+| 板型 | 芯片 | BT 状态 | 是否受无 BT 公共逻辑影响 | 影响内容 |
+| --- | --- | --- | --- | --- |
+| `m5stack-tab5` | `esp32p4` | 明确关闭 | 会 | 编译走 `ble_manager_stub.cc`，配网提示改为 AP/Web |
+| `waveshare-p4-nano` | `esp32p4` | 默认未开启 | 大概率会 | 编译走 `ble_manager_stub.cc`，配网提示改为 AP/Web |
+| `waveshare-p4-wifi6-touch-lcd-4b` | `esp32p4` | 默认未开启 | 大概率会 | 编译走 `ble_manager_stub.cc`，配网提示改为 AP/Web |
+| `waveshare-p4-wifi6-touch-lcd-7b` | `esp32p4` | 默认未开启 | 大概率会 | 编译走 `ble_manager_stub.cc`，配网提示改为 AP/Web |
+| `waveshare-p4-wifi6-touch-lcd-xc` | `esp32p4` | 默认未开启 | 大概率会 | 编译走 `ble_manager_stub.cc`，配网提示改为 AP/Web |
+| `waveshare-p4-86-panel-eth-2ro` | `esp32p4` | 明确开启 | 不会走无 BT 路径 | 继续编译真实 BLE，走 hosted BLE |
+| 大多数 `esp32s3` 板 | `esp32s3` | 默认开启 | 一般不会 | 仍走真实 BLE 路径 |
+
+判断依据：
+
+- [`sdkconfig.defaults.esp32p4`](houzzkit-ai/sdkconfig.defaults.esp32p4) 默认未开启 BT，因此多数 `esp32p4` 板若未额外追加配置，会落到无 BT 路径。
+- [`sdkconfig.defaults.esp32s3`](houzzkit-ai/sdkconfig.defaults.esp32s3) 默认开启了 `CONFIG_BT_ENABLED=y` 和 `CONFIG_BT_NIMBLE_ENABLED=y`，所以大多数 `esp32s3` 板一般不会受这部分无 BT 分流影响。
+- [`main/boards/waveshare-p4-86-panel-eth-2ro/config.json`](houzzkit-ai/main/boards/waveshare-p4-86-panel-eth-2ro/config.json) 是当前已确认的 `P4` 特例，因为它显式追加了 BT 和 hosted BLE 配置。
+
+边界说明：
+
+- 最终是否受影响，以 Ubuntu 打包机实际写入的 `sdkconfig_append` 为准；若打包机额外开启 `CONFIG_BT_ENABLED=y`，则结论会变化。
+
 对 Ubuntu 打包机是否有额外要求：
 
 - 有。
