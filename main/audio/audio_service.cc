@@ -81,18 +81,11 @@ void AudioService::Start() {
 
 #if CONFIG_USE_AUDIO_PROCESSOR
     /* Start the audio input task */
-#if CONFIG_IDF_TARGET_ESP32P4
-    constexpr BaseType_t kAudioInputCore = 1;
-    constexpr UBaseType_t kAudioInputPriority = 5;
-#else
-    constexpr BaseType_t kAudioInputCore = 0;
-    constexpr UBaseType_t kAudioInputPriority = 8;
-#endif
     xTaskCreatePinnedToCore([](void* arg) {
         AudioService* audio_service = (AudioService*)arg;
         audio_service->AudioInputTask();
         vTaskDelete(NULL);
-    }, "audio_input", 2048 * 3, this, kAudioInputPriority, &audio_input_task_handle_, kAudioInputCore);
+    }, "audio_input", 2048 * 3, this, 8, &audio_input_task_handle_, 0);
 
     /* Start the audio output task */
     xTaskCreate([](void* arg) {
@@ -117,19 +110,11 @@ void AudioService::Start() {
 #endif
 
     /* Start the opus codec task */
-#if CONFIG_IDF_TARGET_ESP32P4
-    xTaskCreatePinnedToCore([](void* arg) {
-        AudioService* audio_service = (AudioService*)arg;
-        audio_service->OpusCodecTask();
-        vTaskDelete(NULL);
-    }, "opus_codec", 2048 * 13, this, 6, &opus_codec_task_handle_, 0);
-#else
     xTaskCreate([](void* arg) {
         AudioService* audio_service = (AudioService*)arg;
         audio_service->OpusCodecTask();
         vTaskDelete(NULL);
     }, "opus_codec", 2048 * 13, this, 2, &opus_codec_task_handle_);
-#endif
 }
 
 void AudioService::Stop() {

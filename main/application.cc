@@ -391,18 +391,11 @@ void Application::Start() {
     };
     audio_service_.SetCallbacks(callbacks);
 
-    // Start the main event loop task
-#if CONFIG_IDF_TARGET_ESP32P4
-    xTaskCreatePinnedToCore([](void* arg) {
-        ((Application*)arg)->MainEventLoop();
-        vTaskDelete(NULL);
-    }, "main_event_loop", 2048 * 4, this, 5, &main_event_loop_task_handle_, 0);
-#else
+    // Start the main event loop task with priority 3
     xTaskCreate([](void* arg) {
         ((Application*)arg)->MainEventLoop();
         vTaskDelete(NULL);
     }, "main_event_loop", 2048 * 4, this, 3, &main_event_loop_task_handle_);
-#endif
 
     /* Start the clock timer to update the status bar */
     esp_timer_start_periodic(clock_timer_handle_, 1000000);

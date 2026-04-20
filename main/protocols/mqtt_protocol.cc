@@ -18,12 +18,18 @@ MqttProtocol::MqttProtocol() {
         .callback = [](void* arg) {
             MqttProtocol* protocol = (MqttProtocol*)arg;
             auto& app = Application::GetInstance();
-            if (app.GetDeviceState() == kDeviceStateIdle) {
-                ESP_LOGI(TAG, "Reconnecting to MQTT server");
-                app.Schedule([protocol]() {
-                    protocol->StartMqttClient(false);
-                });
+            if (app.GetDeviceState() != kDeviceStateIdle) {
+                ESP_LOGI(TAG, "Skip MQTT reconnect because device is busy, retry later");
+                protocol->ScheduleReconnect();
+                return;
             }
+
+            ESP_LOGI(TAG, "Reconnecting to MQTT server");
+            app.Schedule([protocol]() {
+                if (!protocol->StartMqttClient(false)) {
+                    protocol->ScheduleReconnect();
+                }
+            });
         },
         .arg = this,
     };
@@ -40,7 +46,7 @@ MqttProtocol::~MqttProtocol() {
     }
 
     udp_.reset();
-    mqtt_.reset();
+    mqtt_.reset();    
 
     if (event_group_handle_ != nullptr) {
         vEventGroupDelete(event_group_handle_);
@@ -49,6 +55,16 @@ MqttProtocol::~MqttProtocol() {
 
 bool MqttProtocol::Start() {
     return StartMqttClient(false);
+}
+
+void MqttProtocol::ScheduleReconnect() {
+    if (reconnect_timer_ == nullptr) {
+        return;
+    }
+    if (esp_timer_is_active(reconnect_timer_)) {
+        esp_timer_stop(reconnect_timer_);
+    }
+    esp_timer_start_once(reconnect_timer_, MQTT_RECONNECT_INTERVAL_MS * 1000);
 }
 
 bool MqttProtocol::StartMqttClient(bool report_error) {
@@ -81,20 +97,8 @@ bool MqttProtocol::StartMqttClient(bool report_error) {
         if (on_disconnected_ != nullptr) {
             on_disconnected_();
         }
-
-        bool has_audio_channel = false;
-        {
-            std::lock_guard<std::mutex> lock(channel_mutex_);
-            has_audio_channel = udp_ != nullptr;
-        }
-        if (has_audio_channel) {
-            Application::GetInstance().Schedule([this]() {
-                CloseAudioChannel();
-            });
-        }
-
         ESP_LOGI(TAG, "MQTT disconnected, schedule reconnect in %d seconds", MQTT_RECONNECT_INTERVAL_MS / 1000);
-        esp_timer_start_once(reconnect_timer_, MQTT_RECONNECT_INTERVAL_MS * 1000);
+        ScheduleReconnect();
     });
 
     mqtt_->OnConnected([this]() {
@@ -146,6 +150,7 @@ bool MqttProtocol::StartMqttClient(bool report_error) {
     }
     if (!mqtt_->Connect(broker_address, broker_port, client_id, username, password)) {
         ESP_LOGE(TAG, "Failed to connect to endpoint");
+        ScheduleReconnect();
         SetError(Lang::Strings::SERVER_NOT_CONNECTED);
         return false;
     }
@@ -193,33 +198,16 @@ bool MqttProtocol::SendAudio(std::unique_ptr<AudioStreamPacket> packet) {
 }
 
 void MqttProtocol::CloseAudioChannel() {
-    std::string closing_session_id;
-    bool mqtt_connected = false;
-
     {
         std::lock_guard<std::mutex> lock(channel_mutex_);
-        if (udp_ == nullptr && session_id_.empty()) {
-            return;
-        }
-
-        closing_session_id = session_id_;
-        mqtt_connected = mqtt_ != nullptr && mqtt_->IsConnected();
         udp_.reset();
-        session_id_.clear();
-        udp_server_.clear();
-        udp_port_ = 0;
-        aes_nonce_.clear();
-        local_sequence_ = 0;
-        remote_sequence_ = 0;
     }
 
-    if (mqtt_connected && !closing_session_id.empty()) {
-        std::string message = "{";
-        message += "\"session_id\":\"" + closing_session_id + "\",";
-        message += "\"type\":\"goodbye\"";
-        message += "}";
-        SendText(message);
-    }
+    std::string message = "{";
+    message += "\"session_id\":\"" + session_id_ + "\",";
+    message += "\"type\":\"goodbye\"";
+    message += "}";
+    SendText(message);
 
     if (on_audio_channel_closed_ != nullptr) {
         on_audio_channel_closed_();
@@ -327,11 +315,11 @@ void MqttProtocol::HandlePacketLoss(uint32_t lost_packets_count) {
         // 复制前一帧数据
         temp_packet_copy = std::make_unique<AudioStreamPacket>(*last_valid_packet_);
     }
-
+    
     // 生成并发送丢失的帧
     for (uint32_t i = 0; i < lost_packets_count; ++i) {
         // 更新时间戳以保持音频同步
-        temp_packet_copy->timestamp = last_incoming_time_.time_since_epoch().count() + (i + 1) * temp_packet_copy->frame_duration * 1000; // 简化的时间戳更新
+        temp_packet_copy->timestamp = last_incoming_time_.time_since_epoch().count() + (i + 1) * temp_packet_copy->frame_duration * 1000; // 简化的时间戳更新        
 
         if (on_incoming_audio_ != nullptr) {
             // 传递复制的音频包以进行播放
@@ -442,7 +430,7 @@ bool MqttProtocol::IsAudioChannelOpened() const {
 bool MqttProtocol::SendEmptyAudioPacket() {
     if (!IsAudioChannelOpened()) {
         return false;
-    }
+    }    
 
     auto packet = std::make_unique<AudioStreamPacket>();
     packet->frame_duration = OPUS_FRAME_DURATION_MS;
@@ -451,7 +439,7 @@ bool MqttProtocol::SendEmptyAudioPacket() {
     packet->payload.resize(10, 0x01);
     SendAudio(std::move(packet));
 
-    return true;
+    return true;   
 }
 
 void MqttProtocol::sendPlayVoiceText(const std::string& text)
