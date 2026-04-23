@@ -10,9 +10,19 @@
 
 #define TAG "MQTT"
 
+namespace {
+
+constexpr int kUdpDownlinkFrameDurationMs = 20;
+constexpr bool kUdpDownlinkOpusFecEnabled = true;
+constexpr uint32_t kDownlinkSequenceDebugLogLimit = 4;
+
+}
+
 MqttProtocol::MqttProtocol() {
+    local_sequence_ = 0;
+    remote_sequence_ = 0;
+    ResetDownlinkSequenceStats();
     event_group_handle_ = xEventGroupCreate();
-    last_valid_packet_ = nullptr;
     // Initialize reconnect timer
     esp_timer_create_args_t reconnect_timer_args = {
         .callback = [](void* arg) {
@@ -183,6 +193,8 @@ bool MqttProtocol::SendAudio(std::unique_ptr<AudioStreamPacket> packet) {
 void MqttProtocol::CloseAudioChannel() {
     {
         std::lock_guard<std::mutex> lock(channel_mutex_);
+        LogDownlinkSequenceStats("close");
+        ResetDownlinkSequenceStats();
         udp_.reset();
     }
 
@@ -241,15 +253,6 @@ bool MqttProtocol::OpenAudioChannel() {
         }
         uint32_t timestamp = ntohl(*(uint32_t*)&data[8]);
         uint32_t sequence = ntohl(*(uint32_t*)&data[12]);
-        if (sequence < remote_sequence_) {
-            ESP_LOGW(TAG, "Received audio packet with old sequence: %lu, expected: %lu", sequence, remote_sequence_);
-            return;
-        }
-        if (sequence != remote_sequence_ + 1) {
-            uint32_t lost_packets_count = sequence - remote_sequence_ - 1;
-            ESP_LOGW(TAG, "Received audio packet with wrong sequence: %lu, expected: %lu", sequence, remote_sequence_ + 1);
-            HandlePacketLoss(lost_packets_count);
-        }
 
         size_t decrypted_size = data.size() - aes_nonce_.size();
         size_t nc_off = 0;
@@ -260,6 +263,7 @@ bool MqttProtocol::OpenAudioChannel() {
         packet->sample_rate = server_sample_rate_;
         packet->frame_duration = server_frame_duration_;
         packet->timestamp = timestamp;
+        packet->sequence = sequence;
         packet->payload.resize(decrypted_size);
         int ret = mbedtls_aes_crypt_ctr(&aes_ctx_, decrypted_size, &nc_off, nonce, stream_block, encrypted, (uint8_t*)packet->payload.data());
         if (ret != 0) {
@@ -267,15 +271,11 @@ bool MqttProtocol::OpenAudioChannel() {
             return;
         }
 
-        {
-            std::lock_guard<std::mutex> lock(last_packet_mutex_);
-            last_valid_packet_ = std::make_unique<AudioStreamPacket>(*packet);
-        }
+        ObserveDownlinkSequence(sequence);
 
         if (on_incoming_audio_ != nullptr) {
             on_incoming_audio_(std::move(packet));
         }
-        remote_sequence_ = sequence;
         last_incoming_time_ = std::chrono::steady_clock::now();
     });
 
@@ -287,30 +287,68 @@ bool MqttProtocol::OpenAudioChannel() {
     return true;
 }
 
-void MqttProtocol::HandlePacketLoss(uint32_t lost_packets_count) {
-    //如果没有有效的前一帧，则无法进行补偿
-    std::unique_ptr<AudioStreamPacket> temp_packet_copy;
-    {
-        std::lock_guard<std::mutex> lock(last_packet_mutex_);
-        if (!last_valid_packet_) {
-            return; // 没有前一帧可复制
-        }
-        // 复制前一帧数据
-        temp_packet_copy = std::make_unique<AudioStreamPacket>(*last_valid_packet_);
+void MqttProtocol::ObserveDownlinkSequence(uint32_t sequence) {
+    if (sequence == 0) {
+        return;
     }
-    
-    // 生成并发送丢失的帧
-    for (uint32_t i = 0; i < lost_packets_count; ++i) {
-        // 更新时间戳以保持音频同步
-        temp_packet_copy->timestamp = last_incoming_time_.time_since_epoch().count() + (i + 1) * temp_packet_copy->frame_duration * 1000; // 简化的时间戳更新
-        
-        if (on_incoming_audio_ != nullptr) {
-            // 传递复制的音频包以进行播放
-            on_incoming_audio_(std::make_unique<AudioStreamPacket>(*temp_packet_copy));
-        }
-        // 更新序列号
-        remote_sequence_++;
+
+    if (remote_sequence_ == 0) {
+        remote_sequence_ = sequence;
+        return;
     }
+
+    if (sequence > remote_sequence_) {
+        if (sequence > remote_sequence_ + 1) {
+            const uint32_t gap = sequence - remote_sequence_ - 1;
+            downlink_arrival_gap_events_++;
+            if (gap > downlink_max_arrival_gap_) {
+                downlink_max_arrival_gap_ = gap;
+            }
+            if (downlink_sequence_debug_logs_ < kDownlinkSequenceDebugLogLimit) {
+                ESP_LOGD(TAG,
+                    "Downlink arrival sequence gap: previous_high=%lu current=%lu gap=%lu gaps=%lu",
+                    static_cast<unsigned long>(remote_sequence_),
+                    static_cast<unsigned long>(sequence),
+                    static_cast<unsigned long>(gap),
+                    static_cast<unsigned long>(downlink_arrival_gap_events_));
+                downlink_sequence_debug_logs_++;
+            }
+        }
+        remote_sequence_ = sequence;
+        return;
+    }
+
+    downlink_out_of_order_packets_++;
+    if (downlink_sequence_debug_logs_ < kDownlinkSequenceDebugLogLimit) {
+        ESP_LOGD(TAG,
+            "Downlink out-of-order packet: seq=%lu high=%lu out_of_order=%lu",
+            static_cast<unsigned long>(sequence),
+            static_cast<unsigned long>(remote_sequence_),
+            static_cast<unsigned long>(downlink_out_of_order_packets_));
+        downlink_sequence_debug_logs_++;
+    }
+}
+
+void MqttProtocol::ResetDownlinkSequenceStats() {
+    remote_sequence_ = 0;
+    downlink_arrival_gap_events_ = 0;
+    downlink_max_arrival_gap_ = 0;
+    downlink_out_of_order_packets_ = 0;
+    downlink_sequence_debug_logs_ = 0;
+}
+
+void MqttProtocol::LogDownlinkSequenceStats(const char* reason) {
+    if (downlink_arrival_gap_events_ == 0 && downlink_out_of_order_packets_ == 0) {
+        return;
+    }
+
+    ESP_LOGI(TAG,
+        "Downlink arrival summary: reason=%s high=%lu arrival_gaps=%lu max_gap=%lu out_of_order=%lu",
+        reason,
+        static_cast<unsigned long>(remote_sequence_),
+        static_cast<unsigned long>(downlink_arrival_gap_events_),
+        static_cast<unsigned long>(downlink_max_arrival_gap_),
+        static_cast<unsigned long>(downlink_out_of_order_packets_));
 }
 
 std::string MqttProtocol::GetHelloMessage() {
@@ -331,7 +369,8 @@ std::string MqttProtocol::GetHelloMessage() {
     cJSON_AddStringToObject(audio_params, "format", "opus");
     cJSON_AddNumberToObject(audio_params, "sample_rate", 16000);
     cJSON_AddNumberToObject(audio_params, "channels", 1);
-    cJSON_AddNumberToObject(audio_params, "frame_duration", OPUS_FRAME_DURATION_MS);
+    cJSON_AddNumberToObject(audio_params, "frame_duration", kUdpDownlinkFrameDurationMs);
+    cJSON_AddBoolToObject(audio_params, "fec", kUdpDownlinkOpusFecEnabled);
     cJSON_AddItemToObject(root, "audio_params", audio_params);
     auto json_str = cJSON_PrintUnformatted(root);
     std::string message(json_str);
@@ -364,6 +403,8 @@ void MqttProtocol::ParseServerHello(const cJSON* root) {
         if (cJSON_IsNumber(frame_duration)) {
             server_frame_duration_ = frame_duration->valueint;
         }
+        auto fec = cJSON_GetObjectItem(audio_params, "fec");
+        server_downlink_fec_ = cJSON_IsBool(fec) ? cJSON_IsTrue(fec) : false;
     }
 
     auto udp = cJSON_GetObjectItem(root, "udp");
@@ -381,8 +422,9 @@ void MqttProtocol::ParseServerHello(const cJSON* root) {
     aes_nonce_ = DecodeHexString(nonce);
     mbedtls_aes_init(&aes_ctx_);
     mbedtls_aes_setkey_enc(&aes_ctx_, (const unsigned char*)DecodeHexString(key).c_str(), 128);
+    LogDownlinkSequenceStats("reset");
     local_sequence_ = 0;
-    remote_sequence_ = 0;
+    ResetDownlinkSequenceStats();
     xEventGroupSetBits(event_group_handle_, MQTT_PROTOCOL_SERVER_HELLO_EVENT);
 }
 

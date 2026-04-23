@@ -14,7 +14,8 @@
 
 - **双通道设计**：控制与数据分离，确保实时性
 - **加密传输**：UDP 音频数据使用 AES-CTR 加密
-- **序列号保护**：防止数据包重放和乱序
+- **序列号诊断**：用于下行乱序、迟到、重复包和恢复效果统计
+- **下行自适应恢复**：设备端通过 jitter buffer、Opus FEC/PLC、短等待和极端弱网 resync 降低卡顿
 - **自动重连**：MQTT 连接断开时自动重连
 
 ---
@@ -84,7 +85,8 @@ sequenceDiagram
     "format": "opus",
     "sample_rate": 16000,
     "channels": 1,
-    "frame_duration": 60
+    "frame_duration": 20,
+    "fec": true
   }
 }
 ```
@@ -100,7 +102,8 @@ sequenceDiagram
     "format": "opus",
     "sample_rate": 24000,
     "channels": 1,
-    "frame_duration": 60
+    "frame_duration": 20,
+    "fec": true
   },
   "udp": {
     "server": "192.168.1.100",
@@ -112,6 +115,8 @@ sequenceDiagram
 ```
 
 **字段说明：**
+- `audio_params.frame_duration`：当前设备请求的 UDP 下行 Opus 帧时长，默认 20ms
+- `audio_params.fec`：是否启用下行 Opus FEC，当前默认请求为 `true`
 - `udp.server`：UDP 服务器地址
 - `udp.port`：UDP 服务器端口
 - `udp.key`：AES 加密密钥（十六进制字符串）
@@ -198,7 +203,7 @@ sequenceDiagram
 - `payload_len`：负载长度（网络字节序）
 - `ssrc`：同步源标识符
 - `timestamp`：时间戳（网络字节序）
-- `sequence`：序列号（网络字节序）
+- `sequence`：序列号（网络字节序），用于下行乱序处理、丢包检测和 FEC/PLC 恢复决策
 - `payload`：加密的 Opus 音频数据
 
 #### 4.2.2 加密算法
@@ -211,15 +216,145 @@ sequenceDiagram
 ### 4.3 序列号管理
 
 - **发送端**：`local_sequence_` 单调递增
-- **接收端**：`remote_sequence_` 验证连续性
-- **防重放**：拒绝序列号小于期望值的数据包
-- **容错处理**：允许轻微的序列号跳跃，记录警告
+- **接收端**：`remote_sequence_` 作为到达高水位，用于诊断 gap 和乱序压力
+- **容错处理**：协议层不再因为旧序列号直接丢弃解密成功的下行包，而是交给 AudioService 的 jitter buffer 判定 late、duplicate、FEC 或 PLC
+- **诊断汇总**：会话关闭或重置时输出 `Downlink arrival summary`，包含高水位、arrival gaps、最大 gap 和 out-of-order 数量
 
 ### 4.4 错误处理
 
 1. **解密失败**：记录错误，丢弃数据包
-2. **序列号异常**：记录警告，但仍处理数据包
+2. **序列号异常**：协议层记录到达顺序统计，仍将解密成功的数据包交给音频层处理
 3. **数据包格式错误**：记录错误，丢弃数据包
+
+### 4.5 UDP 下行优化机制
+
+这一节描述当前设备端已经实现的 UDP 下行抗弱网机制。目标不是让 UDP 变成可靠传输，而是在保持低时延的前提下，尽量减少下行音频在正常网络抖动或轻微丢包场景下的卡顿。
+
+#### 4.5.1 依赖的协议字段
+
+当前下行优化依赖以下字段和协商参数：
+
+- `audio_params.frame_duration = 20`
+- `audio_params.fec = true`
+- UDP 包头中的 `sequence`
+
+这些字段不是可忽略的附加信息，而是设备端启用抖动缓冲、FEC 和 PLC 的前提：
+
+- `frame_duration` 用于确定单包音频时长，以及抖动缓冲的目标包数
+- `fec` 表示设备请求服务器按 Opus FEC 模式提供可恢复的下行音频
+- `sequence` 用于识别乱序、重复包、迟到包和丢包 gap
+
+#### 4.5.2 设备端处理流程
+
+设备端当前的下行处理链路如下：
+
+1. `mqtt_protocol` 接收 UDP 音频包，完成 AES-CTR 解密，提取 `timestamp`、`sequence` 和 Opus `payload`
+2. MQTT 层只维护下行到达高水位，记录 arrival gap 和 out-of-order 压力，不再把乱序迟到包误判为 lost 或直接丢弃
+3. `audio_service` 将有效包放入按 `sequence` 排序的下行 jitter buffer；重复包、播放指针已经越过的 late 包会在音频层丢弃并计数
+4. jitter buffer 达到起播 target 后，开始按照期望序列号顺序产出下行帧
+5. 缺包但播放队列仍有安全余量时，最多短等 1 个 frame duration（通常 20ms），给乱序包机会赶到
+6. 解码优先级为：
+   - 正常包直接解码
+   - 丢 1 帧且下一帧已到达时，优先尝试 FEC 恢复
+   - FEC 不可用时，退化到 PLC
+7. 当缓冲超过 max cap 时，丢弃未来包以限制累计时延
+8. 如果长回复中途已经出现硬失败，设备端可触发同轮 resync，跳过不可恢复的旧缺口，从 jitter buffer 中较新的位置继续播放
+
+其中，协议层不再直接“补音频”，丢包恢复统一放到解码层完成，避免旧 payload 重放干扰真实的 FEC/PLC 决策。
+
+#### 4.5.3 抖动缓冲与恢复策略
+
+当前实现中的关键参数如下：
+
+- 下行目标帧长：20ms
+- 起播 target buffer：200ms / 240ms / 280ms 三档自适应
+- 最大 jitter buffer：500ms，仅作为 max cap，不作为起播 target
+- 短等待恢复窗口：最多 1 个 frame duration，通常 20ms
+- 极端弱网 resync：两次间隔至少 800ms，只在新增 hard failure 后触发，不设固定次数上限
+
+默认情况下，设备在累计约 10 个 20ms 包后开始播放。开始播放后：
+
+- 如果 `expected_sequence` 对应的包存在，按正常路径解码
+- 如果当前包缺失、但下一包已到达，并且播放队列还有安全余量，则短等迟到包
+- 如果等待到期或播放队列低于安全水位，优先尝试用下一包的 FEC 恢复当前包
+- 如果连续缺包或下一包也不可用，则调用 PLC 生成一帧掩蔽音频
+- 如果收到旧包、重复包或明显过晚的包，则直接丢弃
+- 如果输出已经断流、buffer cap 被触发、PLC 数量过高或到达间隔极大，下一轮 target 会直接升到 280ms
+- 如果本轮已经被极端弱网打穿，resync 熔断器会在保守条件下把 `expected_sequence` 重锚到 jitter buffer 中可播放的新窗口，避免持续用 PLC 补旧缺口
+
+这套策略的重点是区分 target 和 max：200/240/280ms 用于控制起播延迟和弱网适应，500ms 只用于防止缓存无限增长。极端网络下 resync 可能跳过一小段不可恢复音频，换取后续内容尽快恢复流畅。
+
+#### 4.5.4 target 自适应与硬失败处理
+
+设备端会在每轮下行结束时根据质量统计更新下一轮 target：
+
+- 普通升档：`plc > 5`、`late > 20` 或 `max_arrival_ms > current_target_ms + 30` 时，按 `200 -> 240 -> 280` 逐级升档
+- 硬失败直升：`resync > 0`、`output_gaps > 0`、`trimmed > 0`、`plc > 30` 或 `max_arrival_ms > 500` 时，下一轮直接使用 280ms
+- 降档：干净一轮（`plc == 0`、`late <= 2`、`output_gaps == 0`、`max_arrival_ms <= 200`）后，每轮最多降一档，按 `280 -> 240 -> 200` 回到低延迟
+
+硬失败 resync 只在同一轮已经出现严重异常后触发。触发条件包括已经开始播放、jitter buffer 非空、距离上次 resync 至少 800ms，并且出现新增 output gap、自上次 resync 后新增 trim 达到阈值、连续 PLC 过多，或 jitter buffer 最早包已经远远领先 `expected_sequence`。触发后会丢弃尚未输出的 UDP 下行播放队列，并清除恢复边界状态；轻度 ahead 或连续 PLC 时锚到 jitter buffer 最早可用包，output gap 或 trim storm 时锚到最新约一个 target window 的起点，并丢弃低于新 `expected_sequence` 的旧 jitter 包。resync 不设固定次数上限，靠 800ms 冷却和新增 hard failure 门槛限频，避免长回复中固定预算耗尽后异常继续蔓延。
+
+#### 4.5.5 简化流程图
+
+```mermaid
+flowchart TD
+    A[收到 UDP 下行包] --> B{包格式与解密是否成功}
+    B -- 否 --> Z1[丢弃并记录错误]
+    B -- 是 --> C{sequence 是否连续}
+    C -- 否 --> D[记录 arrival gap / out-of-order]
+    C -- 是 --> E{是否为重复包/已越过的 late 包}
+    D --> E
+    E -- 是 --> Z2[丢弃该包]
+    E -- 否 --> F[写入抖动缓冲]
+    F --> G{达到起播条件}
+    G -- 否 --> H[继续缓冲]
+    G -- 是 --> I{expected_sequence 对应包存在}
+    I -- 是 --> J[正常解码]
+    I -- 否 --> K{播放队列是否仍有安全余量}
+    K -- 是 --> K1[短等最多 1 帧]
+    K1 --> I
+    K -- 否 --> L{expected_sequence + 1 是否存在}
+    L -- 是 --> M[FEC 恢复当前包]
+    L -- 否 --> O[PLC 掩蔽当前包]
+    J --> N[送入播放队列]
+    M --> N
+    O --> N
+    N --> P{是否出现硬失败}
+    P -- 是 --> Q[Resync 到较新的可用包]
+    P -- 否 --> R[继续播放]
+    Q --> R
+```
+
+#### 4.5.6 诊断日志
+
+下行诊断主要看以下日志：
+
+- `Starting downlink playback ... target_ms=...`：本轮实际使用的起播 target
+- `Downlink arrival summary ... arrival_gaps=... out_of_order=...`：MQTT 层观察到的到达乱序压力，不等同于真实丢包
+- `Resetting downlink stats ... target_ms=... next_target_ms=... normal=... fec=... plc=... late=... trimmed=... resync=... dropped_jitter=...`
+- `Downlink quality summary ... recovery_waits=... output_gaps=... max_gap_ms=...`
+- `Downlink resync after hard failure ... reason=... buffer_first=... buffer_last=... dropped_jitter=...`：极端弱网下同轮止损重锚事件
+- `Jitter buffer cap reached` / `Jitter buffer trim continuing`：500ms max cap 被触发，日志会限频输出
+
+判断体验时优先关注 `output_gaps`、`starvation_plc`、`plc`、`late`、`trimmed` 和 `resync`。`seq_gaps` 和 `out_of_order` 主要表示到达乱序压力，不能直接等同于真实丢包。
+
+#### 4.5.7 设计取舍与已知边界
+
+- 当前设计优先避免“长时间等待导致卡死”，允许在轻微丢包时进入 FEC 或 PLC
+- 去掉协议层伪补包后，弱网下的听感更依赖 FEC/PLC，可能表现为轻微失真、发闷或短暂掩蔽音，而不是重复旧音
+- FEC 主要适合有限的丢包模式，通常对单帧丢失最有效；连续多帧丢失时仍会退化到 PLC
+- PLC 的目标是平滑掩蔽丢包，不是还原真实音频；连续丢包越多，听感越容易出现拖尾、发空或逐渐衰减
+- Resync 是极端弱网下的熔断器，可能跳过一小段不可恢复音频；它的目标是避免异常蔓延到长回复后续内容
+- 如果网络到达间隔达到 1 秒以上，280ms target 无法完全覆盖；此时设备会尽力止损，而不是把常规 target 提高到 500ms
+- 当前实现仍依赖服务器按协商结果提供可用于 FEC 的 Opus 下行流；如果服务端未正确启用 FEC，单帧丢失时会更早退化到 PLC
+
+### 4.6 代码对应位置
+
+当前 UDP 下行优化的实现主要分布在以下文件：
+
+- `main/protocols/mqtt_protocol.cc`：UDP 包接收、解密、`sequence` 提取与 gap 记录
+- `main/audio/audio_service.cc`：下行抖动缓冲、起播控制、正常解码/FEC/PLC 决策
+- `main/audio/opus_stream_decoder.cc`：Opus 正常解码、FEC 解码与 PLC 调用封装
 
 ---
 
@@ -273,7 +408,9 @@ bool IsAudioChannelOpened() const {
 - **格式**：Opus
 - **采样率**：16000 Hz（设备端）/ 24000 Hz（服务器端）
 - **声道数**：1（单声道）
-- **帧时长**：60ms
+- **上行帧时长**：60ms
+- **下行目标帧时长**：20ms
+- **下行 FEC**：当前默认请求启用
 
 ---
 
