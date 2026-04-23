@@ -287,6 +287,8 @@ void Application::ToggleChatState() {
         Schedule([this]()
                 { 
                     AbortSpeaking(kAbortReasonNone); 
+                    auto display = Board::GetInstance().GetDisplay();
+                    display->SetChatMessage("system", "");
                     SetDeviceState(kDeviceStateListening);
                 });
     }
@@ -699,6 +701,8 @@ void Application::MainEventLoop()
                 {
                     if (ESPHomeDevice::GetInstance().continuousDialogue())
                     {
+                        auto display = Board::GetInstance().GetDisplay();
+                        display->SetChatMessage("system", "");
                         SetDeviceState(kDeviceStateListening);
                     }
                     else
