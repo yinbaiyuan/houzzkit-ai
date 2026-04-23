@@ -337,10 +337,17 @@ std::string MqttProtocol::GetHelloMessage() {
     cJSON_AddNumberToObject(root, "version", 3);
     cJSON_AddStringToObject(root, "transport", "udp");
     cJSON* features = cJSON_CreateObject();
+    bool feature_aec = false;
+    bool feature_daec = false;
+    bool supports_device_aec = Application::GetInstance().GetAudioService().SupportsDeviceAec();
 #if CONFIG_USE_SERVER_AEC
+    feature_aec = true;
     cJSON_AddBoolToObject(features, "aec", true);
 #elif CONFIG_USE_DEVICE_AEC
-    cJSON_AddBoolToObject(features, "daec", true);
+    feature_daec = supports_device_aec;
+    if (feature_daec) {
+        cJSON_AddBoolToObject(features, "daec", true);
+    }
 #endif
     cJSON_AddBoolToObject(features, "mcp", true);
     cJSON_AddItemToObject(root, "features", features);
@@ -354,6 +361,10 @@ std::string MqttProtocol::GetHelloMessage() {
     std::string message(json_str);
     cJSON_free(json_str);
     cJSON_Delete(root);
+    ESP_LOGI(TAG, "Hello features: aec=%d daec=%d mcp=1 supports_device_aec=%d",
+        feature_aec ? 1 : 0,
+        feature_daec ? 1 : 0,
+        supports_device_aec ? 1 : 0);
     return message;
 }
 

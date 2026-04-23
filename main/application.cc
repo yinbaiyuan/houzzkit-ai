@@ -286,7 +286,7 @@ void Application::ToggleChatState() {
     {
         Schedule([this]()
                 { 
-                    AbortSpeaking(kAbortReasonNone); 
+                    AbortSpeaking(kAbortReasonNone);
                     SetListeningMode(GetPreferredChatListeningMode());
                 });
     }
@@ -662,11 +662,27 @@ void Application::MainEventLoop()
         }
 
         if (bits & MAIN_EVENT_SEND_AUDIO) {
+            static int64_t last_uplink_log_us = 0;
+            static uint32_t uplink_packets_since_log = 0;
+            static uint32_t uplink_failures_since_log = 0;
             while (auto packet = audio_service_.PopPacketFromSendQueue()) {
                 if (protocol_ && !protocol_->SendAudio(std::move(packet))) {
+                    uplink_failures_since_log++;
                     protocol_->CloseAudioChannel();
                     break;
                 }
+                uplink_packets_since_log++;
+            }
+            auto now_us = esp_timer_get_time();
+            if (uplink_packets_since_log > 0 && now_us - last_uplink_log_us >= 2000000) {
+                ESP_LOGI(TAG, "Uplink audio packets: sent=%lu failures=%lu state=%s voice_detected=%d",
+                    static_cast<unsigned long>(uplink_packets_since_log),
+                    static_cast<unsigned long>(uplink_failures_since_log),
+                    STATE_STRINGS[device_state_],
+                    audio_service_.IsVoiceDetected() ? 1 : 0);
+                uplink_packets_since_log = 0;
+                uplink_failures_since_log = 0;
+                last_uplink_log_us = now_us;
             }
         }
 
@@ -675,6 +691,10 @@ void Application::MainEventLoop()
         }
 
         if (bits & MAIN_EVENT_VAD_CHANGE) {
+            ESP_LOGI(TAG, "VAD: %s state=%s mode=%s",
+                audio_service_.IsVoiceDetected() ? "speech" : "silence",
+                STATE_STRINGS[device_state_],
+                ListeningModeToString(listening_mode_));
             if (device_state_ == kDeviceStateListening) {
                 auto led = Board::GetInstance().GetLed();
                 led->OnStateChanged();
@@ -713,6 +733,7 @@ void Application::MainEventLoop()
                 {
                     if (ESPHomeDevice::GetInstance().continuousDialogue())
                     {
+                        ESP_LOGI(TAG, "Continuous dialogue playback ended, return to listening");
                         SetListeningMode(GetPreferredChatListeningMode());
                     }
                     else
@@ -887,12 +908,18 @@ void Application::SetDeviceState(DeviceState state) {
         display->SetStatus(Lang::Strings::LISTENING);
         display->SetEmotion("wakeup");
         display->setDisplayOnOff(true);
+        ESP_LOGI(TAG, "Listening mode: %s, previous_state: %s, audio_processor_running: %d",
+            ListeningModeToString(listening_mode_),
+            STATE_STRINGS[previous_state],
+            audio_service_.IsAudioProcessorRunning() ? 1 : 0);
         // Make sure the audio processor is running
         if (!audio_service_.IsAudioProcessorRunning())
         {
+            if (previous_state == kDeviceStateSpeaking) {
+                audio_service_.ResetUplink();
+            }
             // Send the start listening command
             protocol_->SendStartListening(listening_mode_);
-            audio_service_.ResetUplink();
             audio_service_.EnableVoiceProcessing(true);
             audio_service_.EnableWakeWordDetection(false);
         }

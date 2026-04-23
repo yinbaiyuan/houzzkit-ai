@@ -41,6 +41,19 @@ enum ListeningMode {
     kListeningModeRealtime // 需要 AEC 支持
 };
 
+inline const char* ListeningModeToString(ListeningMode mode) {
+    switch (mode) {
+    case kListeningModeAutoStop:
+        return "auto";
+    case kListeningModeManualStop:
+        return "manual";
+    case kListeningModeRealtime:
+        return "realtime";
+    default:
+        return "unknown";
+    }
+}
+
 class Protocol {
 public:
     virtual ~Protocol() = default;
@@ -98,4 +111,3 @@ protected:
 };
 
 #endif // PROTOCOL_H
-
