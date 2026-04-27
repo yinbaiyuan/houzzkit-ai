@@ -4,11 +4,25 @@
 #include "settings.h"
 
 #include <esp_log.h>
+#include <esp_heap_caps.h>
 #include <cstring>
 #include <arpa/inet.h>
 #include "assets/lang_config.h"
 
 #define TAG "MQTT"
+
+namespace {
+void CheckHeapIntegrity(const char* stage) {
+#if CONFIG_IDF_TARGET_ESP32P4
+    if (!heap_caps_check_integrity_all(false)) {
+        ESP_LOGE(TAG, "Heap corruption detected at %s", stage);
+        heap_caps_check_integrity_all(true);
+    }
+#else
+    (void)stage;
+#endif
+}
+}  // namespace
 
 MqttProtocol::MqttProtocol() {
     event_group_handle_ = xEventGroupCreate();
@@ -46,7 +60,7 @@ MqttProtocol::~MqttProtocol() {
     }
 
     udp_.reset();
-    mqtt_.reset();    
+    ResetMqttClient("destructor");
 
     if (event_group_handle_ != nullptr) {
         vEventGroupDelete(event_group_handle_);
@@ -64,13 +78,34 @@ void MqttProtocol::ScheduleReconnect() {
     if (esp_timer_is_active(reconnect_timer_)) {
         esp_timer_stop(reconnect_timer_);
     }
+    ESP_LOGI(TAG, "Scheduling MQTT reconnect in %d seconds", MQTT_RECONNECT_INTERVAL_MS / 1000);
     esp_timer_start_once(reconnect_timer_, MQTT_RECONNECT_INTERVAL_MS * 1000);
+}
+
+void MqttProtocol::ResetMqttClient(const char* reason) {
+    if (mqtt_ == nullptr) {
+        return;
+    }
+
+    ESP_LOGI(TAG, "Resetting MQTT client, reason=%s", reason);
+    CheckHeapIntegrity("mqtt_reset_before_disconnect");
+    ignore_mqtt_disconnect_.store(true);
+    auto mqtt = std::move(mqtt_);
+    mqtt->Disconnect();
+    mqtt->OnConnected({});
+    mqtt->OnDisconnected({});
+    mqtt->OnMessage({});
+    mqtt->OnError({});
+    mqtt.reset();
+    ignore_mqtt_disconnect_.store(false);
+    CheckHeapIntegrity("mqtt_reset_after_disconnect");
 }
 
 bool MqttProtocol::StartMqttClient(bool report_error) {
     if (mqtt_ != nullptr) {
-        ESP_LOGW(TAG, "Mqtt client already started");
-        mqtt_.reset();
+        ESP_LOGW(TAG, "MQTT client already exists, recreate it after disconnect");
+        CloseAudioChannelInternal("mqtt_client_restart", false);
+        ResetMqttClient("restart");
     }
 
     Settings settings("mqtt", false);
@@ -94,10 +129,23 @@ bool MqttProtocol::StartMqttClient(bool report_error) {
     mqtt_->SetKeepAlive(keepalive_interval);
 
     mqtt_->OnDisconnected([this]() {
+        if (ignore_mqtt_disconnect_.load()) {
+            ESP_LOGI(TAG, "Ignore MQTT disconnected callback during client reset");
+            return;
+        }
         if (on_disconnected_ != nullptr) {
             on_disconnected_();
         }
-        ESP_LOGI(TAG, "MQTT disconnected, schedule reconnect in %d seconds", MQTT_RECONNECT_INTERVAL_MS / 1000);
+        bool has_active_audio_channel = false;
+        std::string current_session_id;
+        {
+            std::lock_guard<std::mutex> lock(channel_mutex_);
+            has_active_audio_channel = udp_ != nullptr || !session_id_.empty();
+            current_session_id = session_id_;
+        }
+        ESP_LOGI(TAG, "MQTT disconnected, active_audio_channel=%d session_id=%s",
+            has_active_audio_channel ? 1 : 0,
+            current_session_id.empty() ? "<empty>" : current_session_id.c_str());
         ScheduleReconnect();
     });
 
@@ -105,6 +153,7 @@ bool MqttProtocol::StartMqttClient(bool report_error) {
         if (on_connected_ != nullptr) {
             on_connected_();
         }
+        ESP_LOGI(TAG, "MQTT connected, stop reconnect timer");
         esp_timer_stop(reconnect_timer_);
     });
 
@@ -128,7 +177,7 @@ bool MqttProtocol::StartMqttClient(bool report_error) {
             ESP_LOGI(TAG, "Received goodbye message, session_id: %s", session_id ? session_id->valuestring : "null");
             if (session_id == nullptr || session_id_ == session_id->valuestring) {
                 Application::GetInstance().Schedule([this]() {
-                    CloseAudioChannel();
+                    CloseAudioChannelInternal("server_goodbye", true);
                 });
             }
         } else if (on_incoming_json_ != nullptr) {
@@ -198,20 +247,69 @@ bool MqttProtocol::SendAudio(std::unique_ptr<AudioStreamPacket> packet) {
 }
 
 void MqttProtocol::CloseAudioChannel() {
+    CloseAudioChannelInternal("request", true);
+}
+
+bool MqttProtocol::CloseAudioChannelInternal(const char* reason, bool notify_application) {
+    std::string closing_session_id;
+    bool mqtt_connected = false;
+    bool had_active_audio_channel = false;
+    std::unique_ptr<Udp> udp_to_close;
+    uint32_t next_udp_channel_generation = 0;
+
     {
-        std::lock_guard<std::mutex> lock(channel_mutex_);
-        udp_.reset();
+        std::lock_guard<std::mutex> channel_lock(channel_mutex_);
+        if (udp_ == nullptr && session_id_.empty()) {
+            ESP_LOGI(TAG, "Skip closing audio channel, reason=%s active=0", reason);
+            return false;
+        }
+
+        had_active_audio_channel = true;
+        closing_session_id = session_id_;
+        mqtt_connected = mqtt_ != nullptr && mqtt_->IsConnected();
+        next_udp_channel_generation = udp_channel_generation_.fetch_add(1) + 1;
+        udp_to_close = std::move(udp_);
+        session_id_.clear();
+        udp_server_.clear();
+        udp_port_ = 0;
+        aes_nonce_.clear();
+        local_sequence_ = 0;
+        remote_sequence_ = 0;
+        error_occurred_ = false;
     }
 
-    std::string message = "{";
-    message += "\"session_id\":\"" + session_id_ + "\",";
-    message += "\"type\":\"goodbye\"";
-    message += "}";
-    SendText(message);
+    {
+        std::lock_guard<std::mutex> packet_lock(last_packet_mutex_);
+        last_valid_packet_.reset();
+    }
 
-    if (on_audio_channel_closed_ != nullptr) {
+    CheckHeapIntegrity("audio_channel_close_before_udp_disconnect");
+    if (udp_to_close != nullptr) {
+        udp_to_close->Disconnect();
+    }
+    CheckHeapIntegrity("audio_channel_close_after_udp_disconnect");
+
+    bool sent_goodbye = false;
+    if (mqtt_connected && !closing_session_id.empty()) {
+        std::string message = "{";
+        message += "\"session_id\":\"" + closing_session_id + "\",";
+        message += "\"type\":\"goodbye\"";
+        message += "}";
+        sent_goodbye = SendText(message);
+    }
+
+    ESP_LOGI(TAG, "Audio channel closed, reason=%s active=%d notify=%d sent_goodbye=%d session_id=%s",
+        reason,
+        had_active_audio_channel ? 1 : 0,
+        notify_application ? 1 : 0,
+        sent_goodbye ? 1 : 0,
+        closing_session_id.empty() ? "<empty>" : closing_session_id.c_str());
+    ESP_LOGI(TAG, "Audio channel generation advanced to %lu", static_cast<unsigned long>(next_udp_channel_generation));
+
+    if (notify_application && on_audio_channel_closed_ != nullptr) {
         on_audio_channel_closed_();
     }
+    return true;
 }
 
 bool MqttProtocol::OpenAudioChannel() {
@@ -241,13 +339,21 @@ bool MqttProtocol::OpenAudioChannel() {
 
     std::lock_guard<std::mutex> lock(channel_mutex_);
     auto network = Board::GetInstance().GetNetwork();
+    uint32_t channel_generation = udp_channel_generation_.fetch_add(1) + 1;
     udp_ = network->CreateUdp(2);
-    udp_->OnMessage([this](const std::string& data) {
+    udp_->OnMessage([this, channel_generation](const std::string& data) {
         /*
          * UDP Encrypted OPUS Packet Format:
          * |type 1u|flags 1u|payload_len 2u|ssrc 4u|timestamp 4u|sequence 4u|
          * |payload payload_len|
          */
+        std::lock_guard<std::mutex> channel_lock(channel_mutex_);
+        if (channel_generation != udp_channel_generation_.load() || udp_ == nullptr) {
+            ESP_LOGW(TAG, "Drop stale UDP packet for generation %lu, current=%lu",
+                static_cast<unsigned long>(channel_generation),
+                static_cast<unsigned long>(udp_channel_generation_.load()));
+            return;
+        }
         if (data.size() < sizeof(aes_nonce_)) {
             ESP_LOGE(TAG, "Invalid audio packet size: %u", data.size());
             return;
@@ -297,6 +403,8 @@ bool MqttProtocol::OpenAudioChannel() {
     });
 
     udp_->Connect(udp_server_, udp_port_);
+    ESP_LOGI(TAG, "Opened UDP audio channel, generation=%lu", static_cast<unsigned long>(channel_generation));
+    CheckHeapIntegrity("audio_channel_open_after_udp_connect");
 
     if (on_audio_channel_opened_ != nullptr) {
         on_audio_channel_opened_();

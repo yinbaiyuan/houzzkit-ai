@@ -15,6 +15,7 @@
 #include <string>
 #include <map>
 #include <mutex>
+#include <atomic>
 
 #define MQTT_PING_INTERVAL_SECONDS 90
 #define MQTT_RECONNECT_INTERVAL_MS 60000
@@ -51,12 +52,16 @@ private:
     uint32_t local_sequence_;
     uint32_t remote_sequence_;
     esp_timer_handle_t reconnect_timer_;    
+    std::atomic<bool> ignore_mqtt_disconnect_{false};
+    std::atomic<uint32_t> udp_channel_generation_{0};
     
     std::unique_ptr<AudioStreamPacket> last_valid_packet_;
     std::mutex last_packet_mutex_;
 
     bool StartMqttClient(bool report_error=false);
+    void ResetMqttClient(const char* reason);
     void ScheduleReconnect();
+    bool CloseAudioChannelInternal(const char* reason, bool notify_application);
     void ParseServerHello(const cJSON* root);
     std::string DecodeHexString(const std::string& hex_string);
 

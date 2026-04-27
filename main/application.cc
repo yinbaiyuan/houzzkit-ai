@@ -22,9 +22,22 @@
 #include <esp_ota_ops.h>
 #include <esp_app_format.h>
 #include <esp_partition.h>
+#include <esp_heap_caps.h>
 
 #define TAG "Application"
 
+namespace {
+void CheckHeapIntegrity(const char* stage) {
+#if CONFIG_IDF_TARGET_ESP32P4
+    if (!heap_caps_check_integrity_all(false)) {
+        ESP_LOGE(TAG, "Heap corruption detected at %s", stage);
+        heap_caps_check_integrity_all(true);
+    }
+#else
+    (void)stage;
+#endif
+}
+}  // namespace
 
 static const char* const STATE_STRINGS[] = {
     "unknown",
@@ -453,7 +466,9 @@ void Application::Start() {
     });
     protocol_->OnAudioChannelClosed([this, &board]() {
         board.SetPowerSaveMode(true);
+        CheckHeapIntegrity("audio_channel_closed_before_reset_uplink");
         audio_service_.ResetUplink();
+        CheckHeapIntegrity("audio_channel_closed_after_reset_uplink");
         Schedule([this]() {
             auto display = Board::GetInstance().GetDisplay();
             display->SetChatMessage("system", "");
@@ -916,12 +931,15 @@ void Application::SetDeviceState(DeviceState state) {
         if (!audio_service_.IsAudioProcessorRunning())
         {
             if (previous_state == kDeviceStateSpeaking) {
+                CheckHeapIntegrity("enter_listening_before_reset_uplink");
                 audio_service_.ResetUplink();
+                CheckHeapIntegrity("enter_listening_after_reset_uplink");
             }
             // Send the start listening command
             protocol_->SendStartListening(listening_mode_);
             audio_service_.EnableVoiceProcessing(true);
             audio_service_.EnableWakeWordDetection(false);
+            CheckHeapIntegrity("enter_listening_after_voice_processing");
         }
     }
     break;
@@ -935,6 +953,7 @@ void Application::SetDeviceState(DeviceState state) {
             audio_service_.EnableWakeWordDetection(audio_service_.IsAfeWakeWord());
         }
         audio_service_.ResetDecoder();
+        CheckHeapIntegrity("enter_speaking_after_reset_decoder");
         break;
     default:
         // Do nothing
