@@ -51,13 +51,14 @@ private:
     int udp_port_;
     uint32_t local_sequence_;
     uint32_t remote_sequence_;
+    uint32_t downlink_arrival_gap_events_;
+    uint32_t downlink_max_arrival_gap_;
+    uint32_t downlink_out_of_order_packets_;
+    uint32_t downlink_sequence_debug_logs_;
     esp_timer_handle_t reconnect_timer_;    
     std::atomic<bool> ignore_mqtt_disconnect_{false};
     std::atomic<uint32_t> udp_channel_generation_{0};
     
-    std::unique_ptr<AudioStreamPacket> last_valid_packet_;
-    std::mutex last_packet_mutex_;
-
     bool StartMqttClient(bool report_error=false);
     void ResetMqttClient(const char* reason);
     void ScheduleReconnect();
@@ -70,7 +71,9 @@ private:
 
     bool SendEmptyAudioPacket();
 
-    void HandlePacketLoss(uint32_t lost_packets_count);
+    void ObserveDownlinkSequence(uint32_t sequence);
+    void ResetDownlinkSequenceStats();
+    void LogDownlinkSequenceStats(const char* reason);
 
 };
 

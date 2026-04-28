@@ -300,6 +300,8 @@ void Application::ToggleChatState() {
         Schedule([this]()
                 { 
                     AbortSpeaking(kAbortReasonNone);
+                    auto display = Board::GetInstance().GetDisplay();
+                    display->SetChatMessage("system", "");
                     SetListeningMode(GetPreferredChatListeningMode());
                 });
     }
@@ -749,6 +751,8 @@ void Application::MainEventLoop()
                     if (ESPHomeDevice::GetInstance().continuousDialogue())
                     {
                         ESP_LOGI(TAG, "Continuous dialogue playback ended, return to listening");
+                        auto display = Board::GetInstance().GetDisplay();
+                        display->SetChatMessage("system", "");
                         SetListeningMode(GetPreferredChatListeningMode());
                     }
                     else
@@ -827,7 +831,8 @@ ListeningMode Application::GetPreferredChatListeningMode() const {
 }
 
 void Application::AbortSpeaking(AbortReason reason) {
-    ESP_LOGI(TAG, "Abort speaking");
+    const char* reason_str = reason == kAbortReasonWakeWordDetected ? "wake_word_detected" : "none";
+    ESP_LOGI(TAG, "Abort speaking: reason=%s", reason_str);
     aborted_ = true;
     if (protocol_) {
         protocol_->SendAbortSpeaking(reason);
@@ -944,17 +949,26 @@ void Application::SetDeviceState(DeviceState state) {
     }
     break;
     case kDeviceStateSpeaking:
+    {
         display->SetStatus(Lang::Strings::SPEAKING);
 
-        if (!SupportsRealtimeListening() || listening_mode_ != kListeningModeRealtime)
+        const bool allow_speaking_wake = SupportsRealtimeListening() &&
+            listening_mode_ == kListeningModeRealtime &&
+            audio_service_.IsAfeWakeWord();
+        if (allow_speaking_wake)
+        {
+            audio_service_.EnableWakeWordDetection(true);
+        }
+        else
         {
             audio_service_.EnableVoiceProcessing(false);
-            // Only AFE wake word can be detected in speaking mode
-            audio_service_.EnableWakeWordDetection(audio_service_.IsAfeWakeWord());
+            // Without realtime AEC, playback can be captured by the microphone and falsely trigger wake word abort.
+            audio_service_.EnableWakeWordDetection(false);
         }
         audio_service_.ResetDecoder();
         CheckHeapIntegrity("enter_speaking_after_reset_decoder");
         break;
+    }
     default:
         // Do nothing
         break;
