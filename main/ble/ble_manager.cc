@@ -457,6 +457,7 @@ void BLEManager::registerProto()
         std::string wsToken = _protoParse.popString8();
         std::string httpUrl = _protoParse.popString8();
         std::string mqttInfo = _protoParse.popString16();
+        std::string homeId = _protoParse.popString8();
         
         cJSON *mqttInfoRoot = cJSON_Parse(mqttInfo.c_str());
         if (cJSON_IsObject(mqttInfoRoot)) {
@@ -474,6 +475,9 @@ void BLEManager::registerProto()
                 }
             }
         }
+        if (mqttInfoRoot != nullptr) {
+            cJSON_Delete(mqttInfoRoot);
+        }
 
         Settings settings_http("http", true);
         if (settings_http.GetString("http_url") != httpUrl)
@@ -489,6 +493,19 @@ void BLEManager::registerProto()
         if (settings_ws.GetString("ws_token") != wsToken)
         {
             settings_ws.SetString("ws_token", wsToken);  
+        }
+
+        if (std::string(BOARD_NAME) == "houzzkit-smart-speaker") {
+            if (!homeId.empty()) {
+                Settings settings_houzzkit("houzzkit", true);
+                if (settings_houzzkit.GetString("home_id") != homeId)
+                {
+                    settings_houzzkit.SetString("home_id", homeId);
+                }
+            }
+
+            Settings settings_ble("ble", true);
+            settings_ble.SetInt("close_after_boot", 1);
         }
 
         _protoParse.protoBegin(CMD_CONFIG_WEBSOCKET)
