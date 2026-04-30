@@ -50,10 +50,11 @@ public:
     virtual std::string GetBoardType() override;
     virtual void StartNetwork() override;
     virtual NetworkInterface* GetNetwork() override;
+    virtual bool IsNetworkReady() override;
     virtual const char* GetNetworkStateIcon() override;
     virtual void SetPowerSaveMode(bool enabled) override;
     virtual std::string GetBoardJson() override;
     virtual std::string GetDeviceStatusJson() override;
 };
 
-#endif // DUAL_NETWORK_BOARD_H 
+#endif // DUAL_NETWORK_BOARD_H
