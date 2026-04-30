@@ -903,13 +903,14 @@ void Application::Reboot() {
     esp_restart();
 }
 
-bool Application::UpgradeFirmware(Ota& ota, const std::string& url) {
+bool Application::UpgradeFirmware(Ota& ota, const std::string& url, const std::string& version) {
     auto& board = Board::GetInstance();
     auto display = board.GetDisplay();
+    auto& esphome_device = ESPHomeDevice::GetInstance();
     
     // Use provided URL or get from OTA object
     std::string upgrade_url = url.empty() ? ota.GetFirmwareUrl() : url;
-    std::string version_info = url.empty() ? ota.GetFirmwareVersion() : "(Manual upgrade)";
+    std::string version_info = !version.empty() ? version : (url.empty() ? ota.GetFirmwareVersion() : "(Manual upgrade)");
     
     // Close audio channel if it's open
     if (protocol_ && protocol_->IsAudioChannelOpened()) {
@@ -917,6 +918,7 @@ bool Application::UpgradeFirmware(Ota& ota, const std::string& url) {
         protocol_->CloseAudioChannel();
     }
     ESP_LOGI(TAG, "Starting firmware upgrade from URL: %s", upgrade_url.c_str());
+    esphome_device.setOtaDownloadProgress(0);
     
     Alert(Lang::Strings::OTA_UPGRADE, Lang::Strings::UPGRADING, "download", Lang::Sounds::OGG_UPGRADE);
     vTaskDelay(pdMS_TO_TICKS(3000));
@@ -930,7 +932,8 @@ bool Application::UpgradeFirmware(Ota& ota, const std::string& url) {
     audio_service_.Stop();
     vTaskDelay(pdMS_TO_TICKS(1000));
 
-    bool upgrade_success = ota.StartUpgradeFromUrl(upgrade_url, [display](int progress, size_t speed) {
+    bool upgrade_success = ota.StartUpgradeFromUrl(upgrade_url, [display, &esphome_device](int progress, size_t speed) {
+        esphome_device.setOtaDownloadProgress(progress);
         std::thread([display, progress, speed]() {
             char buffer[32];
             snprintf(buffer, sizeof(buffer), "%d%% %uKB/s", progress, speed / 1024);
@@ -949,11 +952,42 @@ bool Application::UpgradeFirmware(Ota& ota, const std::string& url) {
     } else {
         // Upgrade success, reboot immediately
         ESP_LOGI(TAG, "Firmware upgrade successful, rebooting...");
+        esphome_device.setOtaDownloadProgress(100);
         display->SetChatMessage("system", "Upgrade successful, rebooting...");
         vTaskDelay(pdMS_TO_TICKS(1000)); // Brief pause to show message
         Reboot();
         return true;
     }
+}
+
+void Application::StartFirmwareUpgrade(const std::string &url, const std::string &version) {
+    Schedule([this, url, version]() {
+        if (device_state_ == kDeviceStateUpgrading) {
+            ESP_LOGW(TAG, "Firmware upgrade is already running");
+            return;
+        }
+
+        if (url.empty()) {
+            ESP_LOGW(TAG, "Firmware upgrade URL is empty");
+            Alert(Lang::Strings::ERROR, Lang::Strings::OTA_UPGRADE_URL_EMPTY, "circle_xmark", Lang::Sounds::OGG_EXCLAMATION);
+            xTaskCreate([](void *arg) {
+                auto *app = static_cast<Application *>(arg);
+                vTaskDelay(pdMS_TO_TICKS(5000));
+                app->Schedule([app]() {
+                    app->DismissAlert();
+                });
+                vTaskDelete(NULL);
+            }, "ota_url_alert", 2048, this, 3, nullptr);
+            return;
+        }
+
+        ESPHomeDevice::GetInstance().setOtaDownloadProgress(0);
+
+        Ota ota;
+        if (!UpgradeFirmware(ota, url, version)) {
+            ESP_LOGE(TAG, "Manual firmware upgrade failed");
+        }
+    });
 }
 
 void Application::WakeWordInvoke(const std::string& wake_word) {
@@ -1045,6 +1079,7 @@ void Application::startOtaUpgrade(const std::string& url, const std::string& ver
 {
     _ota_url = url;
     _ota_version = version;
+    ESPHomeDevice::GetInstance().setOtaDownloadProgress(0);
 
     auto& board = Board::GetInstance();
     auto display = board.GetDisplay();
@@ -1114,6 +1149,7 @@ bool Application::otaUpgrade()
         if (esp_timer_get_time() - last_calc_time >= 1000000 || ret == 0) {
             size_t progress = total_read * 100 / content_length;
             BLEManager::GetInstance().otaProgress(progress, recent_read);
+            ESPHomeDevice::GetInstance().setOtaDownloadProgress(progress);
             auto& board = Board::GetInstance();
             auto display = board.GetDisplay();
             char buffer[32];
@@ -1174,6 +1210,7 @@ bool Application::otaUpgrade()
         return false;
     }
 
+    ESPHomeDevice::GetInstance().setOtaDownloadProgress(100);
     ESP_LOGI(TAG, "Firmware upgrade successful");
     return true;
 }

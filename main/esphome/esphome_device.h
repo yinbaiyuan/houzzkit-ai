@@ -39,6 +39,10 @@ class ESPHomeDevice
 
         void setAskAndExecuteCommandText(const std::string &value);
 
+        void setOtaUpgradeUrl(const std::string &value);
+
+        void setLatestVersion(const std::string &value);
+
         void setSleepMode(bool enabled);
 
         void setSleepModeTimeInterval(uint32_t timeInterval);
@@ -47,9 +51,13 @@ class ESPHomeDevice
 
         void setSleepModeEndTime(uint8_t hour, uint8_t minute);
 
+        void setOtaDownloadProgress(uint8_t progress);
+
         void updateIsInSleepModeInterval();
 
         void updateOutputVolume();
+
+        void updateDeviceIp();
 
         bool micEnabled() const { return _micEnabled; } 
         
@@ -64,6 +72,10 @@ class ESPHomeDevice
         bool sleepMode() const { return _sleepMode; }
 
         uint32_t sleepModeTimeInterval() { return _sleepModeTimeInterval.getSleepModeTimeInterval(); }
+
+        const std::string& otaUpgradeUrl() const { return _otaUpgradeUrl; }
+
+        const std::string& latestVersion() const { return _latestVersion; }
 
     private:
 
@@ -84,4 +96,12 @@ class ESPHomeDevice
         SleepModeTimeInterval _sleepModeTimeInterval;
 
         bool _isInSleepModeInterval = false;
+
+        uint8_t _otaDownloadProgress = 0;
+
+        std::string _otaUpgradeUrl;
+
+        std::string _latestVersion;
+
+        std::string _deviceIp;
 };

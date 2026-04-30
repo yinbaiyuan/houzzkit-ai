@@ -9,6 +9,7 @@
 #define USE_BUTTON
 #define USE_SWITCH
 #define USE_NUMBER
+#define USE_SENSOR
 #define USE_DATETIME_TIME
 #define USE_MDNS
 #define USE_NETWORK

@@ -39,6 +39,7 @@ set(ESPHOME_SOURCES
     "esphome/components/number/number.cpp"
     "esphome/components/number/number_call.cpp"
     "esphome/components/number/number_traits.cpp"
+    "esphome/components/sensor/sensor.cpp"
     "esphome/components/text/text.cpp"
     "esphome/components/text/text_call.cpp"
     "esphome/components/text_sensor/text_sensor.cpp"
@@ -59,6 +60,7 @@ set(ESPHOME_INCLUDE_DIRS
     "esphome/components/datetime"
     "esphome/components/switch"
     "esphome/components/number"
+    "esphome/components/sensor"
     "esphome/components/text"
     "esphome/components/text_sensor"
 )
