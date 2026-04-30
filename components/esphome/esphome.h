@@ -15,6 +15,8 @@
 #include "esphome/components/api/user_services.h"
 #include "esphome/components/button/automation.h"
 #include "esphome/components/button/button.h"
+#include "esphome/components/datetime/time_call.h"
+#include "esphome/components/datetime/time_entity.h"
 #include "esphome/components/switch/automation.h"
 #include "esphome/components/switch/switch.h"
 #include "esphome/components/number/automation.h"
@@ -31,6 +33,7 @@
 #include "esphome/components/text/text.h"
 #include "esphome/components/text/text_call.h"
 #include "esphome/components/text/text_traits.h"
+#include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/wifi/wifi_component.h"
 #include "esphome/core/application.h"
 #include "esphome/core/automation.h"
@@ -57,4 +60,3 @@
 #include "esphome/core/etime.h"
 #include "esphome/core/util.h"
 #include "esphome/core/version.h"
-

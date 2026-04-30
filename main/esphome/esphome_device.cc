@@ -7,6 +7,8 @@
 #include "assets/lang_config.h"
 #include "settings.h"
 
+#include <esp_app_desc.h>
+
 #define TAG "ESPHomeDevice"
 
 esphome::api::APIServer *api_apiserver_id;
@@ -44,6 +46,52 @@ public:
 };
 
 VolumeNumber *volume_number_id;
+
+class ContinuousDialogueSwitch : public esphome::switch_::Switch
+{
+public:
+  void write_state(bool state) override
+  {
+    ESPHomeDevice::GetInstance().setContinuousDialogue(state);
+  };
+};
+
+ContinuousDialogueSwitch *continuous_dialogue_switch_id;
+
+class SleepModeSwitch : public esphome::switch_::Switch
+{
+public:
+  void write_state(bool state) override
+  {
+    ESPHomeDevice::GetInstance().setSleepMode(state);
+  };
+};
+
+SleepModeSwitch *sleep_mode_switch_id;
+
+class SleepModeStartTime : public esphome::datetime::TimeEntity
+{
+public:
+  void control(uint8_t hour, uint8_t minute, uint8_t second) override
+  {
+    ESPHomeDevice::GetInstance().setSleepModeStartTime(hour, minute);
+  };
+};
+
+SleepModeStartTime *sleep_mode_start_time_id;
+
+class SleepModeEndTime : public esphome::datetime::TimeEntity
+{
+public:
+  void control(uint8_t hour, uint8_t minute, uint8_t second) override
+  {
+    ESPHomeDevice::GetInstance().setSleepModeEndTime(hour, minute);
+  };
+};
+
+SleepModeEndTime *sleep_mode_end_time_id;
+
+esphome::text_sensor::TextSensor *current_version_sensor_id;
 
 class PlayVoiceText : public esphome::text::Text
 {
@@ -165,6 +213,47 @@ void ESPHomeDevice::setup()
   volume_number_id->traits.set_mode(esphome::number::NUMBER_MODE_SLIDER);
   volume_number_id->publish_state(this->outputVolume());
 
+  // 注册连续对话开关
+  continuous_dialogue_switch_id = new ContinuousDialogueSwitch();
+  esphome::App.register_switch(continuous_dialogue_switch_id);
+  continuous_dialogue_switch_id->set_name(Lang::Strings::ESPHOME_ENTITY_SWITCH_NAME_CONTINUOUS_DIALOGUE);
+  continuous_dialogue_switch_id->set_object_id("continuous_dialogue_switch");
+  continuous_dialogue_switch_id->set_disabled_by_default(false);
+  continuous_dialogue_switch_id->publish_state(this->continuousDialogue());
+
+  // 注册睡眠模式开关
+  sleep_mode_switch_id = new SleepModeSwitch();
+  esphome::App.register_switch(sleep_mode_switch_id);
+  sleep_mode_switch_id->set_name(Lang::Strings::ESPHOME_ENTITY_SWITCH_NAME_SLEEP_MODE);
+  sleep_mode_switch_id->set_object_id("sleep_mode_switch");
+  sleep_mode_switch_id->set_disabled_by_default(false);
+  sleep_mode_switch_id->publish_state(this->sleepMode());
+
+  // 注册睡眠模式开启时间
+  sleep_mode_start_time_id = new SleepModeStartTime();
+  esphome::App.register_time(sleep_mode_start_time_id);
+  sleep_mode_start_time_id->set_name(Lang::Strings::ESPHOME_ENTITY_TIME_NAME_SLEEP_MODE_START);
+  sleep_mode_start_time_id->set_object_id("sleep_mode_start_time");
+  sleep_mode_start_time_id->set_disabled_by_default(false);
+  sleep_mode_start_time_id->publish_state(_sleepModeTimeInterval.startHour, _sleepModeTimeInterval.startMinute, 0);
+
+  // 注册睡眠模式结束时间
+  sleep_mode_end_time_id = new SleepModeEndTime();
+  esphome::App.register_time(sleep_mode_end_time_id);
+  sleep_mode_end_time_id->set_name(Lang::Strings::ESPHOME_ENTITY_TIME_NAME_SLEEP_MODE_END);
+  sleep_mode_end_time_id->set_object_id("sleep_mode_end_time");
+  sleep_mode_end_time_id->set_disabled_by_default(false);
+  sleep_mode_end_time_id->publish_state(_sleepModeTimeInterval.endHour, _sleepModeTimeInterval.endMinute, 0);
+
+  // 注册当前固件版本号
+  current_version_sensor_id = new esphome::text_sensor::TextSensor();
+  esphome::App.register_text_sensor(current_version_sensor_id);
+  current_version_sensor_id->set_name(Lang::Strings::ESPHOME_ENTITY_SENSOR_NAME_CURRENT_VERSION);
+  current_version_sensor_id->set_object_id("current_version");
+  current_version_sensor_id->set_disabled_by_default(false);
+  current_version_sensor_id->set_entity_category(esphome::ENTITY_CATEGORY_DIAGNOSTIC);
+  current_version_sensor_id->publish_state(esp_app_get_description()->version);
+
   play_voice_text_id = new PlayVoiceText();
   esphome::App.register_text(play_voice_text_id);
   play_voice_text_id->set_name(Lang::Strings::ESPHOME_ENTITY_TEXT_NAME_PLAY_VOICE);
@@ -258,6 +347,10 @@ void ESPHomeDevice::setContinuousDialogue(bool enabled)
   _continuousDialogue = enabled;
   Settings settings("esphome", true);
   settings.SetBool("cDialogue", _continuousDialogue);
+  if (continuous_dialogue_switch_id != nullptr)
+  {
+    continuous_dialogue_switch_id->publish_state(_continuousDialogue);
+  }
   BLEManager::GetInstance().notifyContinuousDialogue(_continuousDialogue);
 }
 
@@ -306,6 +399,10 @@ void ESPHomeDevice::setSleepMode(bool enabled)
   _sleepMode = enabled;
   Settings settings("esphome", true);
   settings.SetBool("sleepMode", _sleepMode);
+  if (sleep_mode_switch_id != nullptr)
+  {
+    sleep_mode_switch_id->publish_state(_sleepMode);
+  }
   BLEManager::GetInstance().notifySleepMode(_sleepMode);
   updateOutputVolume();
 }
@@ -315,8 +412,28 @@ void ESPHomeDevice::setSleepModeTimeInterval(uint32_t timeInterval)
   _sleepModeTimeInterval.setSleepModeTimeInterval(timeInterval);
   Settings settings("esphome", true);
   settings.setUint32("sleepModeTI", _sleepModeTimeInterval.getSleepModeTimeInterval());
+  if (sleep_mode_start_time_id != nullptr)
+  {
+    sleep_mode_start_time_id->publish_state(_sleepModeTimeInterval.startHour, _sleepModeTimeInterval.startMinute, 0);
+  }
+  if (sleep_mode_end_time_id != nullptr)
+  {
+    sleep_mode_end_time_id->publish_state(_sleepModeTimeInterval.endHour, _sleepModeTimeInterval.endMinute, 0);
+  }
   BLEManager::GetInstance().notifySleepModeTimeInterval(_sleepModeTimeInterval.getSleepModeTimeInterval());
   updateOutputVolume();
+}
+
+void ESPHomeDevice::setSleepModeStartTime(uint8_t hour, uint8_t minute)
+{
+  _sleepModeTimeInterval.setSleepModeTimeInterval(hour, minute, _sleepModeTimeInterval.endHour, _sleepModeTimeInterval.endMinute);
+  setSleepModeTimeInterval(_sleepModeTimeInterval.getSleepModeTimeInterval());
+}
+
+void ESPHomeDevice::setSleepModeEndTime(uint8_t hour, uint8_t minute)
+{
+  _sleepModeTimeInterval.setSleepModeTimeInterval(_sleepModeTimeInterval.startHour, _sleepModeTimeInterval.startMinute, hour, minute);
+  setSleepModeTimeInterval(_sleepModeTimeInterval.getSleepModeTimeInterval());
 }
 
 void ESPHomeDevice::updateIsInSleepModeInterval()
@@ -335,6 +452,10 @@ void ESPHomeDevice::updateIsInSleepModeInterval()
       uint32_t startTime = _sleepModeTimeInterval.startTime();
       uint32_t endTime = _sleepModeTimeInterval.endTime();
       uint32_t current = tm->tm_hour * 60 + tm->tm_min;
+      if (endTime >= 24 * 60 && current < startTime)
+      {
+        current += 24 * 60;
+      }
       if (current >= startTime && current <= endTime)
       {
         _isInSleepModeInterval = true;

@@ -33,12 +33,15 @@ set(ESPHOME_SOURCES
     "esphome/components/wifi/wifi_component.cpp"
     "esphome/components/wifi/wifi_component_esp_idf.cpp"
     "esphome/components/button/button.cpp"
+    "esphome/components/datetime/time_call.cpp"
+    "esphome/components/datetime/time_entity.cpp"
     "esphome/components/switch/switch.cpp"
     "esphome/components/number/number.cpp"
     "esphome/components/number/number_call.cpp"
     "esphome/components/number/number_traits.cpp"
     "esphome/components/text/text.cpp"
     "esphome/components/text/text_call.cpp"
+    "esphome/components/text_sensor/text_sensor.cpp"
 )
 
 # Collect all include directories
@@ -53,9 +56,11 @@ set(ESPHOME_INCLUDE_DIRS
     "esphome/components/socket"
     "esphome/components/wifi"
     "esphome/components/button"
+    "esphome/components/datetime"
     "esphome/components/switch"
     "esphome/components/number"
     "esphome/components/text"
+    "esphome/components/text_sensor"
 )
 
 # Register the component with ESP-IDF

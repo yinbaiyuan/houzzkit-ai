@@ -51,6 +51,17 @@
         "FOUND_NEW_ASSETS": "Found new assets: %s",
         "DOWNLOAD_ASSETS_FAILED": "Failed to download assets",
         "LOADING_ASSETS": "Loading assets...",
-        "HELLO_MY_FRIEND": "Hello, my friend!"
+        "HELLO_MY_FRIEND": "Hello, my friend!",
+        "ESPHOME_ENTITY_BUTTON_NAME_WAKEUP": "Wake Up",
+        "ESPHOME_ENTITY_SWITCH_NAME_MIC_ENABLE": "Microphone",
+        "ESPHOME_ENTITY_NUMBER_NAME_VOLUME": "Volume",
+        "ESPHOME_ENTITY_SWITCH_NAME_CONTINUOUS_DIALOGUE": "Continuous Dialogue",
+        "ESPHOME_ENTITY_SWITCH_NAME_SLEEP_MODE": "Sleep Mode",
+        "ESPHOME_ENTITY_TIME_NAME_SLEEP_MODE_START": "Sleep Mode Start Time",
+        "ESPHOME_ENTITY_TIME_NAME_SLEEP_MODE_END": "Sleep Mode End Time",
+        "ESPHOME_ENTITY_SENSOR_NAME_CURRENT_VERSION": "Current Version",
+        "ESPHOME_ENTITY_TEXT_NAME_PLAY_VOICE": "Play Voice",
+        "ESPHOME_ENTITY_TEXT_NAME_EXECUTE_COMMAND": "Execute Command",
+        "ESPHOME_ENTITY_TEXT_NAME_ASK_AND_EXECUTE_COMMAND": "Ask And Execute Command"
     }
 }

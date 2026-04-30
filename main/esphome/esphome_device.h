@@ -43,6 +43,10 @@ class ESPHomeDevice
 
         void setSleepModeTimeInterval(uint32_t timeInterval);
 
+        void setSleepModeStartTime(uint8_t hour, uint8_t minute);
+
+        void setSleepModeEndTime(uint8_t hour, uint8_t minute);
+
         void updateIsInSleepModeInterval();
 
         void updateOutputVolume();
