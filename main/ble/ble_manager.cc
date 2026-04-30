@@ -10,6 +10,7 @@
 #include "assets/lang_config.h"
 #include <esp_wifi_types_generic.h>
 #include <mbedtls/md5.h>
+#include <cstring>
 #include <random>
 #include <chrono>
 
@@ -26,6 +27,15 @@
 #define HK_BLE_PROTO_VERSION_PATCH 0x00
 
 #define TAG "BLEManager"
+
+namespace {
+static constexpr char kHouzzkitSmartSpeakerBoardName[] = "houzzkit-smart-speaker";
+
+static bool IsHouzzkitSmartSpeakerBoard()
+{
+    return std::strcmp(BOARD_NAME, kHouzzkitSmartSpeakerBoardName) == 0;
+}
+} // namespace
 
 void BLEManager::onConnect(NimBLEServer *pServer, NimBLEConnInfo &connInfo)
 {
@@ -394,7 +404,7 @@ void BLEManager::registerProto()
 
     _protoCallbackMap[CMD_GET_DEVICE_INFO] = [this](const uint8_t *payload, uint16_t length)
     {
-        _protoParse.protoBegin(CMD_GET_DEVICE_INFO)
+        auto& response = _protoParse.protoBegin(CMD_GET_DEVICE_INFO)
             .pushUint8(0)
             .pushString8(SystemInfo::GetMacAddress())
             .pushString8(BOARD_NAME)
@@ -405,8 +415,12 @@ void BLEManager::registerProto()
             .pushUint8(ESPHomeDevice::GetInstance().voiceResponseSound() ? 1 : 0)
             .pushUint8(ESPHomeDevice::GetInstance().idleScreenOff() ? 1 : 0)
             .pushUint8(ESPHomeDevice::GetInstance().sleepMode() ? 1 : 0)
-            .pushUint32(ESPHomeDevice::GetInstance().sleepModeTimeInterval())
-            .protoSend();
+            .pushUint32(ESPHomeDevice::GetInstance().sleepModeTimeInterval());
+        if (IsHouzzkitSmartSpeakerBoard())
+        {
+            response.pushString8(WifiStation::GetInstance().GetIpAddress());
+        }
+        response.protoSend();
         return true;
     };
 
@@ -457,7 +471,6 @@ void BLEManager::registerProto()
         std::string wsToken = _protoParse.popString8();
         std::string httpUrl = _protoParse.popString8();
         std::string mqttInfo = _protoParse.popString16();
-        std::string homeId = _protoParse.popString8();
         
         cJSON *mqttInfoRoot = cJSON_Parse(mqttInfo.c_str());
         if (cJSON_IsObject(mqttInfoRoot)) {
@@ -495,15 +508,8 @@ void BLEManager::registerProto()
             settings_ws.SetString("ws_token", wsToken);  
         }
 
-        if (std::string(BOARD_NAME) == "houzzkit-smart-speaker") {
-            if (!homeId.empty()) {
-                Settings settings_houzzkit("houzzkit", true);
-                if (settings_houzzkit.GetString("home_id") != homeId)
-                {
-                    settings_houzzkit.SetString("home_id", homeId);
-                }
-            }
-
+        if (IsHouzzkitSmartSpeakerBoard())
+        {
             Settings settings_ble("ble", true);
             settings_ble.SetInt("close_after_boot", 1);
         }
