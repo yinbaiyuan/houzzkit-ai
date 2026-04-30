@@ -6,11 +6,18 @@
 #include "application.h"
 #include "assets/lang_config.h"
 #include "settings.h"
+#include "system_info.h"
+
+#include <esp_app_desc.h>
+#include <wifi_station.h>
 
 #define TAG "ESPHomeDevice"
 
 esphome::api::APIServer *api_apiserver_id;
 esphome::preferences::IntervalSyncer *preferences_intervalsyncer_id;
+esphome::sensor::Sensor *ota_download_progress_sensor_id;
+esphome::text_sensor::TextSensor *device_ip_sensor_id;
+esphome::text_sensor::TextSensor *device_mac_sensor_id;
 
 class WakeupButton : public esphome::button::Button
 {
@@ -22,6 +29,18 @@ public:
 };
 
 WakeupButton *wakeup_button_id;
+
+class FirmwareUpgradeButton : public esphome::button::Button
+{
+public:
+  void press_action() override
+  {
+    auto &device = ESPHomeDevice::GetInstance();
+    Application::GetInstance().StartFirmwareUpgrade(device.otaUpgradeUrl(), device.latestVersion());
+  };
+};
+
+FirmwareUpgradeButton *firmware_upgrade_button_id;
 
 class MicSwitch : public esphome::switch_::Switch
 {
@@ -44,6 +63,52 @@ public:
 };
 
 VolumeNumber *volume_number_id;
+
+class ContinuousDialogueSwitch : public esphome::switch_::Switch
+{
+public:
+  void write_state(bool state) override
+  {
+    ESPHomeDevice::GetInstance().setContinuousDialogue(state);
+  };
+};
+
+ContinuousDialogueSwitch *continuous_dialogue_switch_id;
+
+class SleepModeSwitch : public esphome::switch_::Switch
+{
+public:
+  void write_state(bool state) override
+  {
+    ESPHomeDevice::GetInstance().setSleepMode(state);
+  };
+};
+
+SleepModeSwitch *sleep_mode_switch_id;
+
+class SleepModeStartTime : public esphome::datetime::TimeEntity
+{
+public:
+  void control(uint8_t hour, uint8_t minute, uint8_t second) override
+  {
+    ESPHomeDevice::GetInstance().setSleepModeStartTime(hour, minute);
+  };
+};
+
+SleepModeStartTime *sleep_mode_start_time_id;
+
+class SleepModeEndTime : public esphome::datetime::TimeEntity
+{
+public:
+  void control(uint8_t hour, uint8_t minute, uint8_t second) override
+  {
+    ESPHomeDevice::GetInstance().setSleepModeEndTime(hour, minute);
+  };
+};
+
+SleepModeEndTime *sleep_mode_end_time_id;
+
+esphome::text_sensor::TextSensor *current_version_sensor_id;
 
 class PlayVoiceText : public esphome::text::Text
 {
@@ -77,6 +142,28 @@ public:
 };
 
 AskAndExecuteCommandText *ask_and_execute_command_text_id;
+
+class OtaUpgradeUrlText : public esphome::text::Text
+{
+public:
+  void control(const std::string &value) override
+  {
+    ESPHomeDevice::GetInstance().setOtaUpgradeUrl(value);
+  };
+};
+
+OtaUpgradeUrlText *ota_upgrade_url_text_id;
+
+class LatestVersionText : public esphome::text::Text
+{
+public:
+  void control(const std::string &value) override
+  {
+    ESPHomeDevice::GetInstance().setLatestVersion(value);
+  };
+};
+
+LatestVersionText *latest_version_text_id;
 
 
 ESPHomeDevice &ESPHomeDevice::GetInstance()
@@ -145,6 +232,15 @@ void ESPHomeDevice::setup()
   wakeup_button_id->set_object_id("wakeup_button");
   wakeup_button_id->set_disabled_by_default(false);
 
+  // 注册固件升级按钮
+  firmware_upgrade_button_id = new FirmwareUpgradeButton();
+  esphome::App.register_button(firmware_upgrade_button_id);
+  firmware_upgrade_button_id->set_name(Lang::Strings::ESPHOME_ENTITY_BUTTON_NAME_FIRMWARE_UPGRADE);
+  firmware_upgrade_button_id->set_object_id("firmware_upgrade_button");
+  firmware_upgrade_button_id->set_disabled_by_default(false);
+  firmware_upgrade_button_id->set_entity_category(esphome::ENTITY_CATEGORY_CONFIG);
+  firmware_upgrade_button_id->set_icon("mdi:update");
+
   // 注册麦克风开关
   mic_switch_id = new MicSwitch();
   esphome::App.register_switch(mic_switch_id);
@@ -164,6 +260,103 @@ void ESPHomeDevice::setup()
   volume_number_id->traits.set_step(1.0f);
   volume_number_id->traits.set_mode(esphome::number::NUMBER_MODE_SLIDER);
   volume_number_id->publish_state(this->outputVolume());
+
+  // 注册连续对话开关
+  continuous_dialogue_switch_id = new ContinuousDialogueSwitch();
+  esphome::App.register_switch(continuous_dialogue_switch_id);
+  continuous_dialogue_switch_id->set_name(Lang::Strings::ESPHOME_ENTITY_SWITCH_NAME_CONTINUOUS_DIALOGUE);
+  continuous_dialogue_switch_id->set_object_id("continuous_dialogue_switch");
+  continuous_dialogue_switch_id->set_disabled_by_default(false);
+  continuous_dialogue_switch_id->publish_state(this->continuousDialogue());
+
+  // 注册睡眠模式开关
+  sleep_mode_switch_id = new SleepModeSwitch();
+  esphome::App.register_switch(sleep_mode_switch_id);
+  sleep_mode_switch_id->set_name(Lang::Strings::ESPHOME_ENTITY_SWITCH_NAME_SLEEP_MODE);
+  sleep_mode_switch_id->set_object_id("sleep_mode_switch");
+  sleep_mode_switch_id->set_disabled_by_default(false);
+  sleep_mode_switch_id->publish_state(this->sleepMode());
+
+  // 注册睡眠模式开启时间
+  sleep_mode_start_time_id = new SleepModeStartTime();
+  esphome::App.register_time(sleep_mode_start_time_id);
+  sleep_mode_start_time_id->set_name(Lang::Strings::ESPHOME_ENTITY_TIME_NAME_SLEEP_MODE_START);
+  sleep_mode_start_time_id->set_object_id("sleep_mode_start_time");
+  sleep_mode_start_time_id->set_disabled_by_default(false);
+  sleep_mode_start_time_id->publish_state(_sleepModeTimeInterval.startHour, _sleepModeTimeInterval.startMinute, 0);
+
+  // 注册睡眠模式结束时间
+  sleep_mode_end_time_id = new SleepModeEndTime();
+  esphome::App.register_time(sleep_mode_end_time_id);
+  sleep_mode_end_time_id->set_name(Lang::Strings::ESPHOME_ENTITY_TIME_NAME_SLEEP_MODE_END);
+  sleep_mode_end_time_id->set_object_id("sleep_mode_end_time");
+  sleep_mode_end_time_id->set_disabled_by_default(false);
+  sleep_mode_end_time_id->publish_state(_sleepModeTimeInterval.endHour, _sleepModeTimeInterval.endMinute, 0);
+
+  // 注册当前固件版本号
+  current_version_sensor_id = new esphome::text_sensor::TextSensor();
+  esphome::App.register_text_sensor(current_version_sensor_id);
+  current_version_sensor_id->set_name(Lang::Strings::ESPHOME_ENTITY_SENSOR_NAME_CURRENT_VERSION);
+  current_version_sensor_id->set_object_id("current_version");
+  current_version_sensor_id->set_disabled_by_default(false);
+  current_version_sensor_id->set_entity_category(esphome::ENTITY_CATEGORY_DIAGNOSTIC);
+  current_version_sensor_id->publish_state(esp_app_get_description()->version);
+
+  // 注册设备 IP
+  device_ip_sensor_id = new esphome::text_sensor::TextSensor();
+  esphome::App.register_text_sensor(device_ip_sensor_id);
+  device_ip_sensor_id->set_name(Lang::Strings::ESPHOME_ENTITY_SENSOR_NAME_DEVICE_IP);
+  device_ip_sensor_id->set_object_id("device_ip");
+  device_ip_sensor_id->set_disabled_by_default(false);
+  device_ip_sensor_id->set_entity_category(esphome::ENTITY_CATEGORY_DIAGNOSTIC);
+  this->updateDeviceIp();
+
+  // 注册设备 MAC
+  device_mac_sensor_id = new esphome::text_sensor::TextSensor();
+  esphome::App.register_text_sensor(device_mac_sensor_id);
+  device_mac_sensor_id->set_name(Lang::Strings::ESPHOME_ENTITY_SENSOR_NAME_DEVICE_MAC);
+  device_mac_sensor_id->set_object_id("device_mac");
+  device_mac_sensor_id->set_disabled_by_default(false);
+  device_mac_sensor_id->set_entity_category(esphome::ENTITY_CATEGORY_DIAGNOSTIC);
+  device_mac_sensor_id->publish_state(SystemInfo::GetMacAddress());
+
+  // 注册 OTA 下载进度
+  ota_download_progress_sensor_id = new esphome::sensor::Sensor();
+  esphome::App.register_sensor(ota_download_progress_sensor_id);
+  ota_download_progress_sensor_id->set_name(Lang::Strings::ESPHOME_ENTITY_SENSOR_NAME_OTA_DOWNLOAD_PROGRESS);
+  ota_download_progress_sensor_id->set_object_id("ota_download_progress");
+  ota_download_progress_sensor_id->set_disabled_by_default(false);
+  ota_download_progress_sensor_id->set_entity_category(esphome::ENTITY_CATEGORY_DIAGNOSTIC);
+  ota_download_progress_sensor_id->set_unit_of_measurement("%");
+  ota_download_progress_sensor_id->set_accuracy_decimals(0);
+  ota_download_progress_sensor_id->set_state_class(esphome::sensor::STATE_CLASS_MEASUREMENT);
+  ota_download_progress_sensor_id->publish_state(_otaDownloadProgress);
+
+  // 注册 OTA 升级地址
+  ota_upgrade_url_text_id = new OtaUpgradeUrlText();
+  esphome::App.register_text(ota_upgrade_url_text_id);
+  ota_upgrade_url_text_id->set_name(Lang::Strings::ESPHOME_ENTITY_TEXT_NAME_OTA_UPGRADE_URL);
+  ota_upgrade_url_text_id->set_object_id("ota_upgrade_url");
+  ota_upgrade_url_text_id->set_disabled_by_default(false);
+  ota_upgrade_url_text_id->set_entity_category(esphome::ENTITY_CATEGORY_CONFIG);
+  ota_upgrade_url_text_id->set_icon("mdi:link");
+  ota_upgrade_url_text_id->traits.set_min_length(0);
+  ota_upgrade_url_text_id->traits.set_max_length(512);
+  ota_upgrade_url_text_id->traits.set_mode(esphome::text::TEXT_MODE_TEXT);
+  ota_upgrade_url_text_id->publish_state(_otaUpgradeUrl);
+
+  // 注册最新版本号
+  latest_version_text_id = new LatestVersionText();
+  esphome::App.register_text(latest_version_text_id);
+  latest_version_text_id->set_name(Lang::Strings::ESPHOME_ENTITY_TEXT_NAME_LATEST_VERSION);
+  latest_version_text_id->set_object_id("latest_version");
+  latest_version_text_id->set_disabled_by_default(false);
+  latest_version_text_id->set_entity_category(esphome::ENTITY_CATEGORY_CONFIG);
+  latest_version_text_id->set_icon("mdi:tag");
+  latest_version_text_id->traits.set_min_length(0);
+  latest_version_text_id->traits.set_max_length(32);
+  latest_version_text_id->traits.set_mode(esphome::text::TEXT_MODE_TEXT);
+  latest_version_text_id->publish_state(_latestVersion);
 
   play_voice_text_id = new PlayVoiceText();
   esphome::App.register_text(play_voice_text_id);
@@ -202,6 +395,7 @@ void ESPHomeDevice::setup()
 void ESPHomeDevice::loop()
 {
   esphome::App.loop();
+  updateDeviceIp();
 }
 
 void ESPHomeDevice::setNoisePsk(const std::string noise_psk)
@@ -258,6 +452,10 @@ void ESPHomeDevice::setContinuousDialogue(bool enabled)
   _continuousDialogue = enabled;
   Settings settings("esphome", true);
   settings.SetBool("cDialogue", _continuousDialogue);
+  if (continuous_dialogue_switch_id != nullptr)
+  {
+    continuous_dialogue_switch_id->publish_state(_continuousDialogue);
+  }
   BLEManager::GetInstance().notifyContinuousDialogue(_continuousDialogue);
 }
 
@@ -301,11 +499,33 @@ void ESPHomeDevice::setAskAndExecuteCommandText(const std::string &value)
   ask_and_execute_command_text_id->publish_state("");
 }
 
+void ESPHomeDevice::setOtaUpgradeUrl(const std::string &value)
+{
+  _otaUpgradeUrl = value;
+  if (ota_upgrade_url_text_id != nullptr)
+  {
+    ota_upgrade_url_text_id->publish_state(_otaUpgradeUrl);
+  }
+}
+
+void ESPHomeDevice::setLatestVersion(const std::string &value)
+{
+  _latestVersion = value;
+  if (latest_version_text_id != nullptr)
+  {
+    latest_version_text_id->publish_state(_latestVersion);
+  }
+}
+
 void ESPHomeDevice::setSleepMode(bool enabled)
 {
   _sleepMode = enabled;
   Settings settings("esphome", true);
   settings.SetBool("sleepMode", _sleepMode);
+  if (sleep_mode_switch_id != nullptr)
+  {
+    sleep_mode_switch_id->publish_state(_sleepMode);
+  }
   BLEManager::GetInstance().notifySleepMode(_sleepMode);
   updateOutputVolume();
 }
@@ -315,8 +535,37 @@ void ESPHomeDevice::setSleepModeTimeInterval(uint32_t timeInterval)
   _sleepModeTimeInterval.setSleepModeTimeInterval(timeInterval);
   Settings settings("esphome", true);
   settings.setUint32("sleepModeTI", _sleepModeTimeInterval.getSleepModeTimeInterval());
+  if (sleep_mode_start_time_id != nullptr)
+  {
+    sleep_mode_start_time_id->publish_state(_sleepModeTimeInterval.startHour, _sleepModeTimeInterval.startMinute, 0);
+  }
+  if (sleep_mode_end_time_id != nullptr)
+  {
+    sleep_mode_end_time_id->publish_state(_sleepModeTimeInterval.endHour, _sleepModeTimeInterval.endMinute, 0);
+  }
   BLEManager::GetInstance().notifySleepModeTimeInterval(_sleepModeTimeInterval.getSleepModeTimeInterval());
   updateOutputVolume();
+}
+
+void ESPHomeDevice::setSleepModeStartTime(uint8_t hour, uint8_t minute)
+{
+  _sleepModeTimeInterval.setSleepModeTimeInterval(hour, minute, _sleepModeTimeInterval.endHour, _sleepModeTimeInterval.endMinute);
+  setSleepModeTimeInterval(_sleepModeTimeInterval.getSleepModeTimeInterval());
+}
+
+void ESPHomeDevice::setSleepModeEndTime(uint8_t hour, uint8_t minute)
+{
+  _sleepModeTimeInterval.setSleepModeTimeInterval(_sleepModeTimeInterval.startHour, _sleepModeTimeInterval.startMinute, hour, minute);
+  setSleepModeTimeInterval(_sleepModeTimeInterval.getSleepModeTimeInterval());
+}
+
+void ESPHomeDevice::setOtaDownloadProgress(uint8_t progress)
+{
+  _otaDownloadProgress = progress > 100 ? 100 : progress;
+  if (ota_download_progress_sensor_id != nullptr)
+  {
+    ota_download_progress_sensor_id->publish_state(_otaDownloadProgress);
+  }
 }
 
 void ESPHomeDevice::updateIsInSleepModeInterval()
@@ -335,6 +584,10 @@ void ESPHomeDevice::updateIsInSleepModeInterval()
       uint32_t startTime = _sleepModeTimeInterval.startTime();
       uint32_t endTime = _sleepModeTimeInterval.endTime();
       uint32_t current = tm->tm_hour * 60 + tm->tm_min;
+      if (endTime >= 24 * 60 && current < startTime)
+      {
+        current += 24 * 60;
+      }
       if (current >= startTime && current <= endTime)
       {
         _isInSleepModeInterval = true;
@@ -349,4 +602,18 @@ void ESPHomeDevice::updateIsInSleepModeInterval()
 void ESPHomeDevice::updateOutputVolume()
 {
   this->setOutputVolume(this->outputVolume());
+}
+
+void ESPHomeDevice::updateDeviceIp()
+{
+  std::string ip = WifiStation::GetInstance().GetIpAddress();
+  if (ip == _deviceIp && device_ip_sensor_id != nullptr && device_ip_sensor_id->has_state())
+  {
+    return;
+  }
+  _deviceIp = ip;
+  if (device_ip_sensor_id != nullptr)
+  {
+    device_ip_sensor_id->publish_state(_deviceIp);
+  }
 }
