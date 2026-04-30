@@ -1,11 +1,5 @@
 menu "Device Configure Options"
 
-config OTA_URL
-    string "Default OTA URL"
-    default "https://dev.houzzkit.com/account/weixin/device/ota"
-    help
-        The application will access this URL to check for server address.
-
 choice
     prompt "Flash Assets"
     default FLASH_DEFAULT_ASSETS

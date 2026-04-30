@@ -76,6 +76,10 @@ NetworkInterface* DualNetworkBoard::GetNetwork() {
     return current_board_->GetNetwork();
 }
 
+bool DualNetworkBoard::IsNetworkReady() {
+    return current_board_ != nullptr && current_board_->IsNetworkReady();
+}
+
 const char* DualNetworkBoard::GetNetworkStateIcon() {
     return current_board_->GetNetworkStateIcon();
 }

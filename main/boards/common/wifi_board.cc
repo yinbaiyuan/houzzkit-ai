@@ -91,9 +91,12 @@ void WifiBoard::StartNetwork() {
         return;
     }
 
-    Settings settings("http", false);
-    std::string httpUrl = settings.GetString("http_url");
-    if (httpUrl.empty()) {
+    Settings mqtt_settings("mqtt", false);
+    Settings websocket_settings("websocket", false);
+    std::string mqtt_endpoint = mqtt_settings.GetString("endpoint");
+    std::string websocket_url = websocket_settings.GetString("ws_url");
+    if (mqtt_endpoint.empty() && websocket_url.empty()) {
+        ESP_LOGW(TAG, "No MQTT or WebSocket protocol config found");
         wifi_config_mode_ = true;
         EnterWifiConfigMode();
         return;
@@ -131,6 +134,10 @@ void WifiBoard::StartNetwork() {
 NetworkInterface* WifiBoard::GetNetwork() {
     static EspNetwork network;
     return &network;
+}
+
+bool WifiBoard::IsNetworkReady() {
+    return WifiStation::GetInstance().IsConnected();
 }
 
 const char* WifiBoard::GetNetworkStateIcon() {

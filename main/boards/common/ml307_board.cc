@@ -72,6 +72,10 @@ NetworkInterface* Ml307Board::GetNetwork() {
     return modem_.get();
 }
 
+bool Ml307Board::IsNetworkReady() {
+    return modem_ != nullptr && modem_->network_ready();
+}
+
 const char* Ml307Board::GetNetworkStateIcon() {
     if (modem_ == nullptr || !modem_->network_ready()) {
         return FONT_AWESOME_SIGNAL_OFF;
