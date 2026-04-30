@@ -30,6 +30,7 @@
 
 namespace {
 static constexpr char kHouzzkitSmartSpeakerBoardName[] = "houzzkit-smart-speaker";
+static constexpr char kHouzzkitSmartSpeakerEspHomePort[] = "6053";
 
 static bool IsHouzzkitSmartSpeakerBoard()
 {
@@ -415,11 +416,9 @@ void BLEManager::registerProto()
             .pushUint8(ESPHomeDevice::GetInstance().voiceResponseSound() ? 1 : 0)
             .pushUint8(ESPHomeDevice::GetInstance().idleScreenOff() ? 1 : 0)
             .pushUint8(ESPHomeDevice::GetInstance().sleepMode() ? 1 : 0)
-            .pushUint32(ESPHomeDevice::GetInstance().sleepModeTimeInterval());
-        if (IsHouzzkitSmartSpeakerBoard())
-        {
-            response.pushString8(WifiStation::GetInstance().GetIpAddress());
-        }
+            .pushUint32(ESPHomeDevice::GetInstance().sleepModeTimeInterval())
+            .pushString8(WifiStation::GetInstance().GetIpAddress())
+            .pushString8(kHouzzkitSmartSpeakerEspHomePort);
         response.protoSend();
         return true;
     };
