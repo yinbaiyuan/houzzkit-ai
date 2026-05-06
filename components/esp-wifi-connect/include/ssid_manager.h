@@ -17,6 +17,7 @@ public:
     }
 
     void AddSsid(const std::string& ssid, const std::string& password);
+    void SetOnlySsid(const std::string& ssid, const std::string& password);
     void RemoveSsid(int index);
     void SetDefaultSsid(int index);
     void Clear();

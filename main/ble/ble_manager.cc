@@ -421,6 +421,13 @@ void BLEManager::registerProto()
 
     _protoCallbackMap[CMD_CONNECT_WIFI] = [this](const uint8_t *payload, uint16_t length)
     {
+        if (!_protoParse.isConfiguringWifi())
+        {
+            ESP_LOGW(TAG, "Reject CMD_CONNECT_WIFI: not in WiFi configuration mode");
+            _protoParse.protoBegin(CMD_CONNECT_WIFI).pushUint8(1).protoSend();
+            return true;
+        }
+
         this->stopPushAccessPoints();
         auto &wifi_station = WifiConfigurationAp::GetInstance();
         std::string ssid_str = _protoParse.popString8();

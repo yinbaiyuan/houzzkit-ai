@@ -171,7 +171,7 @@ bool WifiConfigurationAp::ConnectToWifi(const std::string &ssid, const std::stri
 void WifiConfigurationAp::Save(const std::string &ssid, const std::string &password)
 {
     ESP_LOGI(TAG, "Save SSID %s %d", ssid.c_str(), ssid.length());
-    SsidManager::GetInstance().AddSsid(ssid, password);
+    SsidManager::GetInstance().SetOnlySsid(ssid, password);
 }
 
 void WifiConfigurationAp::WifiEventHandler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
