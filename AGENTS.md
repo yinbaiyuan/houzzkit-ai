@@ -1,4 +1,4 @@
-# AGENTS.md
+# Repository Guidelines
 
 ## ExecPlans
 
