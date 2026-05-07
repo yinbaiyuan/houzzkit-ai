@@ -10,7 +10,6 @@
 #include "assets/lang_config.h"
 #include <esp_wifi_types_generic.h>
 #include <mbedtls/md5.h>
-#include <cstring>
 #include <random>
 #include <chrono>
 
@@ -29,13 +28,7 @@
 #define TAG "BLEManager"
 
 namespace {
-static constexpr char kHouzzkitSmartSpeakerBoardName[] = "houzzkit-smart-speaker";
 static constexpr char kHouzzkitSmartSpeakerEspHomePort[] = "6053";
-
-static bool IsHouzzkitSmartSpeakerBoard()
-{
-    return std::strcmp(BOARD_NAME, kHouzzkitSmartSpeakerBoardName) == 0;
-}
 } // namespace
 
 void BLEManager::onConnect(NimBLEServer *pServer, NimBLEConnInfo &connInfo)
@@ -507,12 +500,6 @@ void BLEManager::registerProto()
             settings_ws.SetString("ws_token", wsToken);  
         }
 
-        if (IsHouzzkitSmartSpeakerBoard())
-        {
-            Settings settings_ble("ble", true);
-            settings_ble.SetInt("close_after_boot", 1);
-        }
-
         _protoParse.protoBegin(CMD_CONFIG_WEBSOCKET)
             .pushUint8(0)
             .protoSend();
@@ -642,6 +629,29 @@ void BLEManager::registerProto()
         _protoParse.protoBegin(CMD_DEVICE_SETTINGS)
             .pushUint8(result ? 0 : 1)
             .protoSend();
+        return true;
+    };
+
+    _protoCallbackMap[CMD_DISCONNECT_BLE_AND_REBOOT] = [this](const uint8_t *payload, uint16_t length)
+    {
+        this->stopPushAccessPoints();
+        xTaskCreate([](void *ctx)
+                    {
+                        auto *self = static_cast<BLEManager *>(ctx);
+                        if (self->bleServer != nullptr)
+                        {
+                            auto peers = self->bleServer->getPeerDevices();
+                            for (auto connHandle : peers)
+                            {
+                                self->bleServer->disconnect(connHandle);
+                            }
+                        }
+                        vTaskDelay(pdMS_TO_TICKS(200));
+                        self->free();
+                        vTaskDelay(pdMS_TO_TICKS(100));
+                        esp_restart();
+                    },
+                    "ble_reboot_task", 4096, this, 5, NULL);
         return true;
     };
 }

@@ -584,19 +584,6 @@ void Application::Start() {
 
     /* Start BLE */
     BLEManager::GetInstance().start(board.getDeviceName());
-    {
-        Settings settings_ble("ble", true);
-        if (settings_ble.GetInt("close_after_boot") == 1) {
-            settings_ble.SetInt("close_after_boot", 0);
-            ESP_LOGI(TAG, "BLE will be closed in 10 seconds after boot");
-            xTaskCreate([](void* arg) {
-                vTaskDelay(pdMS_TO_TICKS(10000));
-                BLEManager::GetInstance().free();
-                ESP_LOGI(TAG, "BLE closed after boot");
-                vTaskDelete(NULL);
-            }, "ble_close_task", 4096, nullptr, 4, nullptr);
-        }
-    }
 
     xTaskCreate([](void* arg) {
         ESPHomeDevice& esphomeDevice = ESPHomeDevice::GetInstance();
