@@ -854,13 +854,14 @@ void Application::SetDeviceState(DeviceState state) {
         display->SetStatus(Lang::Strings::LISTENING);
         display->SetEmotion("wakeup");
         display->setDisplayOnOff(true);
-        // Make sure the audio processor is running
+        // Each listening turn must notify the server and route mic input away
+        // from wake word detection, even if realtime AEC kept the processor running.
+        protocol_->SendStartListening(listening_mode_);
+        audio_service_.EnableWakeWordDetection(false);
+
         if (!audio_service_.IsAudioProcessorRunning())
         {
-            // Send the start listening command
-            protocol_->SendStartListening(listening_mode_);
             audio_service_.EnableVoiceProcessing(true);
-            audio_service_.EnableWakeWordDetection(false);
         }
     }
     break;
