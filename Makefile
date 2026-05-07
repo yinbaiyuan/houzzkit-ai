@@ -18,7 +18,7 @@ SS_TMP ?= /tmp/houzzkit-smart-speaker
 
 HEZI_PORT ?= /dev/cu.wchusbserial110
 P4_PORT ?= /dev/cu.usbmodem5AB01652131
-SS_PORT ?= /dev/cu.wchusbserial110
+SS_PORT ?= /dev/cu.usbmodem1101
 
 HEZI_BAUD ?= 1500000
 P4_BAUD ?= 460800
@@ -75,7 +75,6 @@ hezi p4 ss:
 
 build-hezi:
 	rm -rf build
-	$(IDF_SETUP); idf.py set-target esp32s3
 	$(IDF_SETUP); python3 scripts/release.py $(HEZI_BOARD) --name $(HEZI_BOARD)
 
 build-p4:
@@ -85,7 +84,6 @@ build-p4:
 
 build-ss:
 	rm -rf build
-	$(IDF_SETUP); idf.py set-target esp32s3
 	$(IDF_SETUP); python3 scripts/release.py $(SS_BOARD) --name $(SS_BOARD)
 
 flash-hezi:
