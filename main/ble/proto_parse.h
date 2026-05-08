@@ -12,6 +12,7 @@ enum BLE_PROTO_CMD : uint8_t {
     CMD_OTA_PROGRESS = 22,          // OTA进度
     CMD_DEVICE_SETTINGS = 30,       // 设备设置
     CMD_SET_DEVICE_PROPERTY = 31,   // 设置设备设置
+    CMD_DISCONNECT_BLE_AND_REBOOT = 40, // 断开蓝牙并重启设备
     CMD_UPDATE_TOKEN = 100          // 更新Token
 };
 
@@ -79,4 +80,3 @@ public:
     }
 
 };
-

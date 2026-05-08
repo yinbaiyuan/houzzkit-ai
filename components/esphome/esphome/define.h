@@ -9,10 +9,13 @@
 #define USE_BUTTON
 #define USE_SWITCH
 #define USE_NUMBER
+#define USE_SENSOR
+#define USE_DATETIME_TIME
 #define USE_MDNS
 #define USE_NETWORK
 #define USE_NETWORK_IPV6 false
 #define USE_SOCKET_IMPL_BSD_SOCKETS
 #define USE_SOCKET_SELECT_SUPPORT
 #define USE_TEXT
+#define USE_TEXT_SENSOR
 #define USE_WIFI

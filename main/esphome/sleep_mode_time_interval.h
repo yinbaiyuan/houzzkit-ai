@@ -7,7 +7,7 @@ class SleepModeTimeInterval
     public:
         uint8_t startHour = 22;
         uint8_t startMinute = 0;
-        uint8_t endHour = 7;
+        uint8_t endHour = 6;
         uint8_t endMinute = 0;
 
     public:
