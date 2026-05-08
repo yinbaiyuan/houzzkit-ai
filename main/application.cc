@@ -20,6 +20,7 @@
 #include "esphome_device.h"
 #include "ble_manager.h"
 #include <esp_ota_ops.h>
+#include <esp_app_desc.h>
 #include <esp_app_format.h>
 #include <esp_partition.h>
 #include <esp_heap_caps.h>
@@ -53,6 +54,35 @@ static const char* const STATE_STRINGS[] = {
     "fatal_error",
     "invalid_state"
 };
+
+namespace {
+
+void MarkCurrentFirmwareValid() {
+    auto partition = esp_ota_get_running_partition();
+    if (partition == nullptr) {
+        ESP_LOGE(TAG, "Failed to get running partition");
+        return;
+    }
+
+    if (strcmp(partition->label, "factory") == 0) {
+        ESP_LOGI(TAG, "Running from factory partition, skipping firmware validation");
+        return;
+    }
+
+    ESP_LOGI(TAG, "Running partition: %s", partition->label);
+    esp_ota_img_states_t state;
+    if (esp_ota_get_state_partition(partition, &state) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to get state of partition");
+        return;
+    }
+
+    if (state == ESP_OTA_IMG_PENDING_VERIFY) {
+        ESP_LOGI(TAG, "Marking firmware as valid");
+        esp_ota_mark_app_valid_cancel_rollback();
+    }
+}
+
+}
 
 Application::Application() {
     event_group_ = xEventGroupCreate();
@@ -138,111 +168,6 @@ void Application::CheckAssetsVersion() {
     assets.Apply();
     display->SetChatMessage("system", "");
     display->SetEmotion("microchip_ai");
-}
-
-void Application::CheckNewVersion(Ota& ota) {
-    const int MAX_RETRY = 10;
-    int retry_count = 0;
-    int retry_delay = 10; // 初始重试延迟为10秒
-
-    auto& board = Board::GetInstance();
-    while (true) {
-        SetDeviceState(kDeviceStateActivating);
-        auto display = board.GetDisplay();
-        display->SetStatus(Lang::Strings::CHECKING_NEW_VERSION);
-
-        if (!ota.CheckVersion()) {
-            retry_count++;
-            if (retry_count >= MAX_RETRY) {
-                ESP_LOGE(TAG, "Too many retries, exit version check");
-                return;
-            }
-
-            char buffer[256];
-            snprintf(buffer, sizeof(buffer), Lang::Strings::CHECK_NEW_VERSION_FAILED, retry_delay, ota.GetCheckVersionUrl().c_str());
-            Alert(Lang::Strings::ERROR, buffer, "cloud_slash", Lang::Sounds::OGG_EXCLAMATION);
-
-            ESP_LOGW(TAG, "Check new version failed, retry in %d seconds (%d/%d)", retry_delay, retry_count, MAX_RETRY);
-            for (int i = 0; i < retry_delay; i++) {
-                vTaskDelay(pdMS_TO_TICKS(1000));
-                if (device_state_ == kDeviceStateIdle) {
-                    break;
-                }
-            }
-            retry_delay *= 2; // 每次重试后延迟时间翻倍
-            continue;
-        }
-        retry_count = 0;
-        retry_delay = 10; // 重置重试延迟时间
-
-        if (ota.HasNewVersion()) {
-            if (UpgradeFirmware(ota)) {
-                return; // This line will never be reached after reboot
-            }
-            // If upgrade failed, continue to normal operation (don't break, just fall through)
-        }
-
-        // No new version, mark the current version as valid
-        ota.MarkCurrentVersionValid();
-        if (!ota.HasActivationCode() && !ota.HasActivationChallenge()) {
-            xEventGroupSetBits(event_group_, MAIN_EVENT_CHECK_NEW_VERSION_DONE);
-            // Exit the loop if done checking new version
-            break;
-        }
-
-        display->SetStatus(Lang::Strings::ACTIVATION);
-        // Activation code is shown to the user and waiting for the user to input
-        if (ota.HasActivationCode()) {
-            ShowActivationCode(ota.GetActivationCode(), ota.GetActivationMessage());
-        }
-
-        // This will block the loop until the activation is done or timeout
-        for (int i = 0; i < 10; ++i) {
-            ESP_LOGI(TAG, "Activating... %d/%d", i + 1, 10);
-            esp_err_t err = ota.Activate();
-            if (err == ESP_OK) {
-                xEventGroupSetBits(event_group_, MAIN_EVENT_CHECK_NEW_VERSION_DONE);
-                break;
-            } else if (err == ESP_ERR_TIMEOUT) {
-                vTaskDelay(pdMS_TO_TICKS(3000));
-            } else {
-                vTaskDelay(pdMS_TO_TICKS(10000));
-            }
-            if (device_state_ == kDeviceStateIdle) {
-                break;
-            }
-        }
-    }
-}
-
-void Application::ShowActivationCode(const std::string& code, const std::string& message) {
-    // struct digit_sound {
-    //     char digit;
-    //     const std::string_view& sound;
-    // };
-    // static const std::array<digit_sound, 10> digit_sounds{{
-    //     digit_sound{'0', Lang::Sounds::OGG_0},
-    //     digit_sound{'1', Lang::Sounds::OGG_1}, 
-    //     digit_sound{'2', Lang::Sounds::OGG_2},
-    //     digit_sound{'3', Lang::Sounds::OGG_3},
-    //     digit_sound{'4', Lang::Sounds::OGG_4},
-    //     digit_sound{'5', Lang::Sounds::OGG_5},
-    //     digit_sound{'6', Lang::Sounds::OGG_6},
-    //     digit_sound{'7', Lang::Sounds::OGG_7},
-    //     digit_sound{'8', Lang::Sounds::OGG_8},
-    //     digit_sound{'9', Lang::Sounds::OGG_9}
-    // }};
-
-    // // This sentence uses 9KB of SRAM, so we need to wait for it to finish
-    // Alert(Lang::Strings::ACTIVATION, message.c_str(), "link", Lang::Sounds::OGG_ACTIVATION);
-
-    // for (const auto& digit : code) {
-    //     auto it = std::find_if(digit_sounds.begin(), digit_sounds.end(),
-    //         [digit](const digit_sound& ds) { return ds.digit == digit; });
-    //     if (it != digit_sounds.end()) {
-    //         audio_service_.PlaySound(it->sound);
-    //     }
-    // }
 }
 
 void Application::Alert(const char* status, const char* message, const char* emotion, const std::string_view& sound) {
@@ -415,6 +340,8 @@ void Application::Start() {
     /* Start the clock timer to update the status bar */
     esp_timer_start_periodic(clock_timer_handle_, 1000000);
 
+    MarkCurrentFirmwareValid();
+
     // Check for new assets version
     CheckAssetsVersion();
 
@@ -424,10 +351,6 @@ void Application::Start() {
     // Update the status bar immediately to show the network state
     display->UpdateStatusBar(true);
 
-    // Check for new firmware version or get the MQTT broker address
-    Ota ota;
-    CheckNewVersion(ota);
-
     // Initialize the protocol
     display->SetStatus(Lang::Strings::LOADING_PROTOCOL);
 
@@ -436,13 +359,17 @@ void Application::Start() {
     mcp_server.AddCommonTools();
     mcp_server.AddUserOnlyTools();
 
-    if (ota.HasMqttConfig())
-    {
+    Settings mqtt_settings("mqtt", false);
+    Settings websocket_settings("websocket", false);
+    auto mqtt_endpoint = mqtt_settings.GetString("endpoint");
+    auto websocket_url = websocket_settings.GetString("ws_url");
+
+    if (!mqtt_endpoint.empty()) {
         protocol_ = std::make_unique<MqttProtocol>();
-    } else if (ota.HasWebsocketConfig()) {
+    } else if (!websocket_url.empty()) {
         protocol_ = std::make_unique<WebsocketProtocol>();
     } else {
-        ESP_LOGW(TAG, "No protocol specified in the OTA config, using MQTT");
+        ESP_LOGW(TAG, "No protocol config found, using MQTT");
         protocol_ = std::make_unique<MqttProtocol>();
     }
 
@@ -589,9 +516,8 @@ void Application::Start() {
     SystemInfo::PrintHeapStats();
     SetDeviceState(kDeviceStateIdle);
 
-    has_server_time_ = ota.HasServerTime();
     if (protocol_started) {
-        std::string message = std::string(Lang::Strings::VERSION) + ota.GetCurrentVersion();
+        std::string message = std::string(Lang::Strings::VERSION) + esp_app_get_description()->version;
         display->ShowNotification(message.c_str());
         display->SetChatMessage("system", "");
         // Play the success sound to indicate the device is ready
@@ -932,7 +858,11 @@ void Application::SetDeviceState(DeviceState state) {
             ListeningModeToString(listening_mode_),
             STATE_STRINGS[previous_state],
             audio_service_.IsAudioProcessorRunning() ? 1 : 0);
-        // Make sure the audio processor is running
+        // Each listening turn must notify the server and route mic input away
+        // from wake word detection, even if realtime AEC kept the processor running.
+        protocol_->SendStartListening(listening_mode_);
+        audio_service_.EnableWakeWordDetection(false);
+
         if (!audio_service_.IsAudioProcessorRunning())
         {
             if (previous_state == kDeviceStateSpeaking) {
@@ -940,10 +870,7 @@ void Application::SetDeviceState(DeviceState state) {
                 audio_service_.ResetUplink();
                 CheckHeapIntegrity("enter_listening_after_reset_uplink");
             }
-            // Send the start listening command
-            protocol_->SendStartListening(listening_mode_);
             audio_service_.EnableVoiceProcessing(true);
-            audio_service_.EnableWakeWordDetection(false);
             CheckHeapIntegrity("enter_listening_after_voice_processing");
         }
     }
@@ -988,13 +915,14 @@ void Application::Reboot() {
     esp_restart();
 }
 
-bool Application::UpgradeFirmware(Ota& ota, const std::string& url) {
+bool Application::UpgradeFirmware(Ota& ota, const std::string& url, const std::string& version) {
     auto& board = Board::GetInstance();
     auto display = board.GetDisplay();
+    auto& esphome_device = ESPHomeDevice::GetInstance();
     
     // Use provided URL or get from OTA object
     std::string upgrade_url = url.empty() ? ota.GetFirmwareUrl() : url;
-    std::string version_info = url.empty() ? ota.GetFirmwareVersion() : "(Manual upgrade)";
+    std::string version_info = !version.empty() ? version : (url.empty() ? ota.GetFirmwareVersion() : "(Manual upgrade)");
     
     // Close audio channel if it's open
     if (protocol_ && protocol_->IsAudioChannelOpened()) {
@@ -1002,6 +930,7 @@ bool Application::UpgradeFirmware(Ota& ota, const std::string& url) {
         protocol_->CloseAudioChannel();
     }
     ESP_LOGI(TAG, "Starting firmware upgrade from URL: %s", upgrade_url.c_str());
+    esphome_device.setOtaDownloadProgress(0);
     
     Alert(Lang::Strings::OTA_UPGRADE, Lang::Strings::UPGRADING, "download", Lang::Sounds::OGG_UPGRADE);
     vTaskDelay(pdMS_TO_TICKS(3000));
@@ -1015,7 +944,8 @@ bool Application::UpgradeFirmware(Ota& ota, const std::string& url) {
     audio_service_.Stop();
     vTaskDelay(pdMS_TO_TICKS(1000));
 
-    bool upgrade_success = ota.StartUpgradeFromUrl(upgrade_url, [display](int progress, size_t speed) {
+    bool upgrade_success = ota.StartUpgradeFromUrl(upgrade_url, [display, &esphome_device](int progress, size_t speed) {
+        esphome_device.setOtaDownloadProgress(progress);
         std::thread([display, progress, speed]() {
             char buffer[32];
             snprintf(buffer, sizeof(buffer), "%d%% %uKB/s", progress, speed / 1024);
@@ -1034,11 +964,42 @@ bool Application::UpgradeFirmware(Ota& ota, const std::string& url) {
     } else {
         // Upgrade success, reboot immediately
         ESP_LOGI(TAG, "Firmware upgrade successful, rebooting...");
+        esphome_device.setOtaDownloadProgress(100);
         display->SetChatMessage("system", "Upgrade successful, rebooting...");
         vTaskDelay(pdMS_TO_TICKS(1000)); // Brief pause to show message
         Reboot();
         return true;
     }
+}
+
+void Application::StartFirmwareUpgrade(const std::string &url, const std::string &version) {
+    Schedule([this, url, version]() {
+        if (device_state_ == kDeviceStateUpgrading) {
+            ESP_LOGW(TAG, "Firmware upgrade is already running");
+            return;
+        }
+
+        if (url.empty()) {
+            ESP_LOGW(TAG, "Firmware upgrade URL is empty");
+            Alert(Lang::Strings::ERROR, Lang::Strings::OTA_UPGRADE_URL_EMPTY, "circle_xmark", Lang::Sounds::OGG_EXCLAMATION);
+            xTaskCreate([](void *arg) {
+                auto *app = static_cast<Application *>(arg);
+                vTaskDelay(pdMS_TO_TICKS(5000));
+                app->Schedule([app]() {
+                    app->DismissAlert();
+                });
+                vTaskDelete(NULL);
+            }, "ota_url_alert", 2048, this, 3, nullptr);
+            return;
+        }
+
+        ESPHomeDevice::GetInstance().setOtaDownloadProgress(0);
+
+        Ota ota;
+        if (!UpgradeFirmware(ota, url, version)) {
+            ESP_LOGE(TAG, "Manual firmware upgrade failed");
+        }
+    });
 }
 
 void Application::WakeWordInvoke(const std::string& wake_word) {
@@ -1131,11 +1092,16 @@ void Application::PlaySound(const std::string_view& sound) {
     audio_service_.PlaySound(sound);
 }
 
+void Application::SetServerTimeSynced(bool synced) {
+    has_server_time_ = synced;
+}
+
 
 void Application::startOtaUpgrade(const std::string& url, const std::string& version)
 {
     _ota_url = url;
     _ota_version = version;
+    ESPHomeDevice::GetInstance().setOtaDownloadProgress(0);
 
     auto& board = Board::GetInstance();
     auto display = board.GetDisplay();
@@ -1205,6 +1171,7 @@ bool Application::otaUpgrade()
         if (esp_timer_get_time() - last_calc_time >= 1000000 || ret == 0) {
             size_t progress = total_read * 100 / content_length;
             BLEManager::GetInstance().otaProgress(progress, recent_read);
+            ESPHomeDevice::GetInstance().setOtaDownloadProgress(progress);
             auto& board = Board::GetInstance();
             auto display = board.GetDisplay();
             char buffer[32];
@@ -1265,6 +1232,7 @@ bool Application::otaUpgrade()
         return false;
     }
 
+    ESPHomeDevice::GetInstance().setOtaDownloadProgress(100);
     ESP_LOGI(TAG, "Firmware upgrade successful");
     return true;
 }

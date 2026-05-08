@@ -80,6 +80,8 @@ void SsidManager::SaveToNvs() {
         }
     }
     nvs_commit(nvs_handle);
+    auto saved_count = ssid_list_.size();
+    ESP_LOGI(TAG, "Saved WiFi count: %u", static_cast<unsigned>(saved_count));
     nvs_close(nvs_handle);
 }
 
@@ -100,6 +102,15 @@ void SsidManager::AddSsid(const std::string& ssid, const std::string& password) 
     }
     // Add the new ssid to the front of the list
     ssid_list_.insert(ssid_list_.begin(), {ssid, password});
+    SaveToNvs();
+}
+
+void SsidManager::SetOnlySsid(const std::string& ssid, const std::string& password) {
+    auto old_count = ssid_list_.size();
+    ssid_list_.clear();
+    ssid_list_.push_back({ssid, password});
+    ESP_LOGI(TAG, "Set only latest WiFi SSID: %s, count: %u -> %u",
+        ssid.c_str(), static_cast<unsigned>(old_count), static_cast<unsigned>(ssid_list_.size()));
     SaveToNvs();
 }
 

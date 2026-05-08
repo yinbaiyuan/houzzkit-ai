@@ -150,28 +150,6 @@ void McpServer::AddUserOnlyTools() {
             return true;
         });
 
-    // Firmware upgrade
-    AddUserOnlyTool("self.upgrade_firmware", "Upgrade firmware from a specific URL. This will download and install the firmware, then reboot the device.",
-        PropertyList({
-            Property("url", kPropertyTypeString, "The URL of the firmware binary file to download and install")
-        }),
-        [this](const PropertyList& properties) -> ReturnValue {
-            auto url = properties["url"].value<std::string>();
-            ESP_LOGI(TAG, "User requested firmware upgrade from URL: %s", url.c_str());
-            
-            auto& app = Application::GetInstance();
-            app.Schedule([url, &app]() {
-                auto ota = std::make_unique<Ota>();
-                
-                bool success = app.UpgradeFirmware(*ota, url);
-                if (!success) {
-                    ESP_LOGE(TAG, "Firmware upgrade failed");
-                }
-            });
-            
-            return true;
-        });
-
     // Display control
 #ifdef HAVE_LVGL
     auto display = dynamic_cast<LvglDisplay*>(Board::GetInstance().GetDisplay());

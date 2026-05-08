@@ -18,7 +18,6 @@ dependencies:
   espressif/esp_lcd_panel_io_additions: ^1.0.1
   78/esp_lcd_nv3023: ~1.0.0
   78/esp-opus-encoder: ~2.4.1
-  78/esp-ml307: ~3.3.6
   78/xiaozhi-fonts: ~1.5.3
   espressif/led_strip: ~3.0.1
   espressif/esp_codec_dev: ~1.4.0
@@ -95,6 +94,8 @@ dependencies:
     path: "../components/esphome"
   esp-wifi-connect:
     path: "../components/esp-wifi-connect"
+  esp-ml307:
+    path: "../components/esp-ml307"
 
   ## Required IDF version
   idf:

@@ -2,7 +2,7 @@
     "target": "esp32s3",
     "builds": [
         {
-            "name": "esp32-s3-touch-lcd-1.85c-2.0",
+            "name": "esp32-s3-touch-lcd-1.85c-v2-2.0",
             "sdkconfig_append": []
         }
     ]

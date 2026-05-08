@@ -27,6 +27,10 @@
 
 #define TAG "BLEManager"
 
+namespace {
+static constexpr char kHouzzkitSmartSpeakerEspHomePort[] = "6053";
+} // namespace
+
 void BLEManager::onConnect(NimBLEServer *pServer, NimBLEConnInfo &connInfo)
 {
     ESP_LOGI("NimBLEServer", "Client address: %s", connInfo.getAddress().toString().c_str());
@@ -394,7 +398,7 @@ void BLEManager::registerProto()
 
     _protoCallbackMap[CMD_GET_DEVICE_INFO] = [this](const uint8_t *payload, uint16_t length)
     {
-        _protoParse.protoBegin(CMD_GET_DEVICE_INFO)
+        auto& response = _protoParse.protoBegin(CMD_GET_DEVICE_INFO)
             .pushUint8(0)
             .pushString8(SystemInfo::GetMacAddress())
             .pushString8(BOARD_NAME)
@@ -406,7 +410,9 @@ void BLEManager::registerProto()
             .pushUint8(ESPHomeDevice::GetInstance().idleScreenOff() ? 1 : 0)
             .pushUint8(ESPHomeDevice::GetInstance().sleepMode() ? 1 : 0)
             .pushUint32(ESPHomeDevice::GetInstance().sleepModeTimeInterval())
-            .protoSend();
+            .pushString8(WifiStation::GetInstance().GetIpAddress())
+            .pushString8(kHouzzkitSmartSpeakerEspHomePort);
+        response.protoSend();
         return true;
     };
 
@@ -421,6 +427,13 @@ void BLEManager::registerProto()
 
     _protoCallbackMap[CMD_CONNECT_WIFI] = [this](const uint8_t *payload, uint16_t length)
     {
+        if (!_protoParse.isConfiguringWifi())
+        {
+            ESP_LOGW(TAG, "Reject CMD_CONNECT_WIFI: not in WiFi configuration mode");
+            _protoParse.protoBegin(CMD_CONNECT_WIFI).pushUint8(1).protoSend();
+            return true;
+        }
+
         this->stopPushAccessPoints();
         auto &wifi_station = WifiConfigurationAp::GetInstance();
         std::string ssid_str = _protoParse.popString8();
@@ -493,7 +506,9 @@ void BLEManager::registerProto()
                 }
             }
         }
-        cJSON_Delete(mqttInfoRoot);
+        if (mqttInfoRoot != nullptr) {
+            cJSON_Delete(mqttInfoRoot);
+        }
 
         Settings settings_http("http", true);
         if (settings_http.GetString("http_url") != httpUrl)
@@ -640,6 +655,29 @@ void BLEManager::registerProto()
         _protoParse.protoBegin(CMD_DEVICE_SETTINGS)
             .pushUint8(result ? 0 : 1)
             .protoSend();
+        return true;
+    };
+
+    _protoCallbackMap[CMD_DISCONNECT_BLE_AND_REBOOT] = [this](const uint8_t *payload, uint16_t length)
+    {
+        this->stopPushAccessPoints();
+        xTaskCreate([](void *ctx)
+                    {
+                        auto *self = static_cast<BLEManager *>(ctx);
+                        if (self->bleServer != nullptr)
+                        {
+                            auto peers = self->bleServer->getPeerDevices();
+                            for (auto connHandle : peers)
+                            {
+                                self->bleServer->disconnect(connHandle);
+                            }
+                        }
+                        vTaskDelay(pdMS_TO_TICKS(200));
+                        self->free();
+                        vTaskDelay(pdMS_TO_TICKS(100));
+                        esp_restart();
+                    },
+                    "ble_reboot_task", 4096, this, 5, NULL);
         return true;
     };
 }

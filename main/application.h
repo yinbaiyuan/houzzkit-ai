@@ -22,7 +22,6 @@
 #define MAIN_EVENT_WAKE_WORD_DETECTED (1 << 2)
 #define MAIN_EVENT_VAD_CHANGE (1 << 3)
 #define MAIN_EVENT_ERROR (1 << 4)
-#define MAIN_EVENT_CHECK_NEW_VERSION_DONE (1 << 5)
 #define MAIN_EVENT_CLOCK_TICK (1 << 6)
 #define MAIN_START_OTA (1 << 7)
 #define MAIN_EVENT_PLAYBACK_END (1 << 8)
@@ -57,13 +56,15 @@ public:
     void StopListening();
     void Reboot();
     void WakeWordInvoke(const std::string& wake_word);
-    bool UpgradeFirmware(Ota& ota, const std::string& url = "");
+    bool UpgradeFirmware(Ota& ota, const std::string& url = "", const std::string& version = "");
+    void StartFirmwareUpgrade(const std::string &url, const std::string &version = "");
     bool CanEnterSleepMode();
     void SendMcpMessage(const std::string& payload);
     void SetAecMode(AecMode mode);
     AecMode GetAecMode() const { return aec_mode_; }
     void PlaySound(const std::string_view& sound);
     AudioService& GetAudioService() { return audio_service_; }
+    void SetServerTimeSynced(bool synced = true);
 
     void startOtaUpgrade(const std::string& url, const std::string& version);
     bool otaUpgrade();
@@ -89,7 +90,6 @@ private:
     bool has_server_time_ = false;
     bool aborted_ = false;
     int clock_ticks_ = 0;
-    TaskHandle_t check_new_version_task_handle_ = nullptr;
     TaskHandle_t main_event_loop_task_handle_ = nullptr;
     TaskHandle_t esphome_loop_task_handle_ = nullptr;
 
@@ -97,9 +97,7 @@ private:
     std::string _ota_version;
 
     void OnWakeWordDetected();
-    void CheckNewVersion(Ota& ota);
     void CheckAssetsVersion();
-    void ShowActivationCode(const std::string& code, const std::string& message);
     void SetListeningMode(ListeningMode mode);
     AecMode GetEffectiveAecMode() const;
     bool SupportsRealtimeListening() const;
