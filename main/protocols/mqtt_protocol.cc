@@ -765,6 +765,7 @@ bool MqttProtocol::ParseServerHello(const cJSON* root) {
     mbedtls_aes_setkey_enc(&aes_ctx_, (const unsigned char*)decoded_key.data(), 128);
     LogDownlinkSequenceStats("reset");
     local_sequence_ = 0;
+    remote_sequence_ = 0;
     ResetDownlinkSequenceStats();
     ESP_LOGI(TAG, "Session ID: %s", session_id_.c_str());
     xEventGroupSetBits(event_group_handle_, MQTT_PROTOCOL_SERVER_HELLO_EVENT);

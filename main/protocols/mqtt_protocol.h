@@ -65,6 +65,8 @@ private:
     uint32_t downlink_out_of_order_packets_;
     uint32_t downlink_sequence_debug_logs_;
     esp_timer_handle_t reconnect_timer_;    
+    std::unique_ptr<AudioStreamPacket> last_valid_packet_;
+    std::mutex last_packet_mutex_;
     std::mutex handshake_mutex_;
     bool handshake_in_progress_ = false;
     MqttHandshakeFailure handshake_failure_ = MqttHandshakeFailure::None;
