@@ -76,6 +76,7 @@ set(BUILTIN_ICON_FONT font_awesome_14_1)
 
 # Add board files according to BOARD_TYPE
 # Set default assets if the board uses partition table V2
+set(MANUFACTURER "")
 if(CONFIG_BOARD_TYPE_BREAD_COMPACT_WIFI)
     set(BOARD_TYPE "bread-compact-wifi")
     set(BUILTIN_TEXT_FONT font_puhui_basic_14_1)
@@ -226,8 +227,9 @@ elseif(CONFIG_BOARD_TYPE_ECHOEAR)
     set(BUILTIN_TEXT_FONT font_puhui_20_4)
     set(BUILTIN_ICON_FONT font_awesome_20_4)
     set(DEFAULT_EMOJI_COLLECTION twemoji_64)
-elseif(CONFIG_BOARD_TYPE_HOUZZKIT_SMART_SPEAKER)
-    set(BOARD_TYPE "houzzkit-smart-speaker")
+elseif(CONFIG_BOARD_TYPE_HOUZZKIT_AI_SMART_SPEAKER_L1)
+    set(MANUFACTURER "houzzkit")
+    set(BOARD_TYPE "houzzkit-ai-smart-speaker-l1")
     set(BUILTIN_TEXT_FONT font_puhui_basic_20_4)
     set(BUILTIN_ICON_FONT font_awesome_20_4)
     set(DEFAULT_EMOJI_COLLECTION twemoji_64)
@@ -538,11 +540,34 @@ elseif(CONFIG_BOARD_TYPE_YUNLIAO_S3)
     set(DEFAULT_EMOJI_COLLECTION twemoji_64)
 endif()
 
-file(GLOB BOARD_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_TYPE}/*.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_TYPE}/*.c
-)
-list(APPEND SOURCES ${BOARD_SOURCES})
+set(BOARD_BASE_DIR "${CMAKE_CURRENT_LIST_DIR}/boards")
+if(BOARD_TYPE)
+    set(BOARD_SOURCE_DIR "${BOARD_BASE_DIR}/${BOARD_TYPE}")
+    if(MANUFACTURER)
+        set(BOARD_SOURCE_DIR "${BOARD_BASE_DIR}/${MANUFACTURER}/${BOARD_TYPE}")
+    elseif(NOT EXISTS "${BOARD_SOURCE_DIR}")
+        file(GLOB BOARD_SOURCE_DIR_CANDIDATES
+            LIST_DIRECTORIES true
+            "${BOARD_BASE_DIR}/*/${BOARD_TYPE}"
+        )
+        list(LENGTH BOARD_SOURCE_DIR_CANDIDATES BOARD_SOURCE_DIR_CANDIDATE_COUNT)
+        if(BOARD_SOURCE_DIR_CANDIDATE_COUNT EQUAL 1)
+            list(GET BOARD_SOURCE_DIR_CANDIDATES 0 BOARD_SOURCE_DIR)
+        elseif(BOARD_SOURCE_DIR_CANDIDATE_COUNT GREATER 1)
+            message(FATAL_ERROR "Multiple board directories found for ${BOARD_TYPE}: ${BOARD_SOURCE_DIR_CANDIDATES}")
+        endif()
+    endif()
+
+    if(NOT EXISTS "${BOARD_SOURCE_DIR}")
+        message(FATAL_ERROR "Board directory not found for ${BOARD_TYPE}: ${BOARD_SOURCE_DIR}")
+    endif()
+
+    file(GLOB BOARD_SOURCES
+        "${BOARD_SOURCE_DIR}/*.cc"
+        "${BOARD_SOURCE_DIR}/*.c"
+    )
+    list(APPEND SOURCES ${BOARD_SOURCES})
+endif()
 
 # Select audio processor according to Kconfig
 if(CONFIG_USE_AUDIO_PROCESSOR)
