@@ -8,7 +8,8 @@
 
 BoxAudioCodec::BoxAudioCodec(void* i2c_master_handle, int input_sample_rate, int output_sample_rate,
     gpio_num_t mclk, gpio_num_t bclk, gpio_num_t ws, gpio_num_t dout, gpio_num_t din,
-    gpio_num_t pa_pin, uint8_t es8311_addr, uint8_t es7210_addr, bool input_reference) {
+    gpio_num_t pa_pin, uint8_t es8311_addr, uint8_t es7210_addr, bool input_reference,
+    bool pa_reverted) {
     duplex_ = true; // 是否双工
     input_reference_ = input_reference; // 是否使用参考输入，实现回声消除
     input_channels_ = input_reference_ ? 2 : 1; // 输入通道数
@@ -44,6 +45,7 @@ BoxAudioCodec::BoxAudioCodec(void* i2c_master_handle, int input_sample_rate, int
     es8311_cfg.gpio_if = gpio_if_;
     es8311_cfg.codec_mode = ESP_CODEC_DEV_WORK_MODE_DAC;
     es8311_cfg.pa_pin = pa_pin;
+    es8311_cfg.pa_reverted = pa_reverted;
     es8311_cfg.use_mclk = true;
     es8311_cfg.hw_gain.pa_voltage = 5.0;
     es8311_cfg.hw_gain.codec_dac_voltage = 3.3;
