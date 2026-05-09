@@ -5,6 +5,7 @@
 #include "button.h"
 #include "config.h"
 #include "esphome_device.h"
+#include "esphome_voice_device.h"
 #include "led/single_led.h"
 #include "assets/lang_config.h"
 
@@ -37,7 +38,11 @@ static void gpio1_task(void* arg) {
             int level = gpio_get_level((gpio_num_t)io_num);
             ESP_LOGI(TAG, "GPIO1 level: %d", level);
             // 控制麦克风使能
-            ESPHomeDevice::GetInstance().setMicEnable(level == 1);
+#if CONFIG_USE_VOICE_DIALOGUE
+            ESPHomeVoiceDevice::GetInstance().setMicEnable(level == 1);
+#else
+            (void)level;
+#endif
             Board::GetInstance().GetLed()->OnStateChanged();
         }
     }
@@ -76,14 +81,17 @@ private:
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState();
+#if CONFIG_USE_VOICE_DIALOGUE
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
+#endif
         });
 
 #if CONFIG_USE_DEVICE_AEC
         boot_button_.OnDoubleClick([this]() {
             auto& app = Application::GetInstance();
-            if (app.GetDeviceState() == kDeviceStateIdle) {
-                app.SetAecMode(app.GetAecMode() == kAecOff ? kAecOnDeviceSide : kAecOff);
+            if (app.GetDeviceState() == kDeviceStateRunning && Board::GetInstance().GetVoiceController()->IsIdle()) {
+                auto voice = Board::GetInstance().GetVoiceController();
+                voice->SetAecMode(voice->GetAecMode() == kAecOff ? kAecOnDeviceSide : kAecOff);
             }
         });
 #endif
@@ -91,13 +99,15 @@ private:
         play_button_.OnClick([this]() {
             // power_save_timer_->WakeUp();
             // auto& app = Application::GetInstance();
-            // app.ToggleChatState();
+            // Board::GetInstance().GetVoiceController()->ToggleChatState();
 
             auto& app = Application::GetInstance();
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState();
+#if CONFIG_USE_VOICE_DIALOGUE
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
+#endif
         });
 
         play_button_.OnLongPress([this]() {
@@ -105,7 +115,7 @@ private:
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            // app.ToggleChatState();
+            // Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
 
         volume_up_button_.OnClick([this]() {
@@ -117,7 +127,9 @@ private:
             }
             codec->SetOutputVolume(volume);
             GetDisplay()->ShowNotification(Lang::Strings::VOLUME + std::to_string(volume/10));
-            Application::GetInstance().PlaySound(Lang::Sounds::OGG_POPUP);
+#if CONFIG_USE_VOICE_DIALOGUE
+            Board::GetInstance().GetVoiceController()->PlaySound(Lang::Sounds::OGG_POPUP);
+#endif
 
         });
 
@@ -125,26 +137,32 @@ private:
             // power_save_timer_->WakeUp();
             GetAudioCodec()->SetOutputVolume(100);
             GetDisplay()->ShowNotification(Lang::Strings::MAX_VOLUME);
-            Application::GetInstance().PlaySound(Lang::Sounds::OGG_POPUP);
+#if CONFIG_USE_VOICE_DIALOGUE
+            Board::GetInstance().GetVoiceController()->PlaySound(Lang::Sounds::OGG_POPUP);
+#endif
         });
 
         volume_down_button_.OnClick([this]() {
             // power_save_timer_->WakeUp();
-            auto codec = GetAudioCodec();
-            auto volume = codec->output_volume() - 10;
-            if (volume < 0) {
-                volume = 0;
-            }
-            codec->SetOutputVolume(volume);
-            GetDisplay()->ShowNotification(Lang::Strings::VOLUME + std::to_string(volume/10));
-            Application::GetInstance().PlaySound(Lang::Sounds::OGG_POPUP);
+//             auto codec = GetAudioCodec();
+//             auto volume = codec->output_volume() - 10;
+//             if (volume < 0) {
+//                 volume = 0;
+//             }
+//             codec->SetOutputVolume(volume);
+//             GetDisplay()->ShowNotification(Lang::Strings::VOLUME + std::to_string(volume/10));
+// #if CONFIG_USE_VOICE_DIALOGUE
+//             Board::GetInstance().GetVoiceController()->PlaySound(Lang::Sounds::OGG_POPUP);
+// #endif
         });
 
         volume_down_button_.OnLongPress([this]() {
             // power_save_timer_->WakeUp();
             GetAudioCodec()->SetOutputVolume(0);
             GetDisplay()->ShowNotification(Lang::Strings::MUTED);
-            Application::GetInstance().PlaySound(Lang::Sounds::OGG_POPUP);
+#if CONFIG_USE_VOICE_DIALOGUE
+            Board::GetInstance().GetVoiceController()->PlaySound(Lang::Sounds::OGG_POPUP);
+#endif
         });
     }
 
@@ -213,6 +231,9 @@ public:
         return &led;
     }
 
+    virtual void RegisterESPHomeEntities(ESPHomeDevice& device) override {
+        ESPHomeVoiceDevice::GetInstance().RegisterEntities(device);
+    }
 
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);

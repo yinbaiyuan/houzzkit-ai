@@ -90,7 +90,7 @@ private:
 
         key_button_.OnClick([this]() {
             auto& app = Application::GetInstance();
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
             key_long_pressed = false;
         });
 

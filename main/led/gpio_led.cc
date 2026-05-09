@@ -1,5 +1,6 @@
 #include "gpio_led.h"
 #include "application.h"
+#include "board.h"
 #include "device_state.h"
 #include <esp_log.h>
 
@@ -211,28 +212,30 @@ void GpioLed::OnStateChanged() {
             SetBrightness(DEFAULT_BRIGHTNESS);
             StartContinuousBlink(500);
             break;
-        case kDeviceStateIdle:
-            SetBrightness(IDLE_BRIGHTNESS);
-            TurnOn();
-            // TurnOff();
-            break;
-        case kDeviceStateConnecting:
-            SetBrightness(DEFAULT_BRIGHTNESS);
-            TurnOn();
-            break;
-        case kDeviceStateListening:
-        case kDeviceStateAudioTesting:
-            if (app.IsVoiceDetected()) {
-                SetBrightness(HIGH_BRIGHTNESS);
-            } else {
-                SetBrightness(LOW_BRIGHTNESS);
+        case kDeviceStateRunning:
+            switch (Board::GetInstance().GetVoiceController()->GetInteractionState()) {
+                case kVoiceInteractionStateIdle:
+                    SetBrightness(IDLE_BRIGHTNESS);
+                    TurnOn();
+                    break;
+                case kVoiceInteractionStateConnecting:
+                    SetBrightness(DEFAULT_BRIGHTNESS);
+                    TurnOn();
+                    break;
+                case kVoiceInteractionStateListening:
+                case kVoiceInteractionStateAudioTesting:
+                    if (Board::GetInstance().GetVoiceController()->IsVoiceDetected()) {
+                        SetBrightness(HIGH_BRIGHTNESS);
+                    } else {
+                        SetBrightness(LOW_BRIGHTNESS);
+                    }
+                    StartFadeTask();
+                    break;
+                case kVoiceInteractionStateSpeaking:
+                    SetBrightness(SPEAKING_BRIGHTNESS);
+                    TurnOn();
+                    break;
             }
-            // TurnOn();
-            StartFadeTask();
-            break;
-        case kDeviceStateSpeaking:
-            SetBrightness(SPEAKING_BRIGHTNESS);
-            TurnOn();
             break;
         case kDeviceStateUpgrading:
             SetBrightness(UPGRADING_BRIGHTNESS);

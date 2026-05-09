@@ -134,10 +134,10 @@ private:
 
     void InitializeButtons() {
         boot_button_.OnPressDown([this]() {
-            Application::GetInstance().StartListening();
+            Board::GetInstance().GetVoiceController()->StartListening();
         });
         boot_button_.OnPressUp([this]() {
-            Application::GetInstance().StopListening();
+            Board::GetInstance().GetVoiceController()->StopListening();
         });
 
         volume_up_button_.OnClick([this]() {

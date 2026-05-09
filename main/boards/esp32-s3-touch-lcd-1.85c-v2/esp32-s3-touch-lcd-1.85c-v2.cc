@@ -176,7 +176,7 @@ static const st77916_lcd_init_cmd_t vendor_specific_init_new[] = {
     {0xB5, (uint8_t []){0x04}, 1, 0},
     {0xB6, (uint8_t []){0x00}, 1, 0},
     {0xB7, (uint8_t []){0x00}, 1, 0},
-    
+
     {0xB8, (uint8_t []){0x48}, 1, 0},
     {0xB9, (uint8_t []){0x00}, 1, 0},
     {0xBA, (uint8_t []){0x0B}, 1, 0},
@@ -209,7 +209,7 @@ static const st77916_lcd_init_cmd_t vendor_specific_init_new[] = {
     {0xF0, (uint8_t []){0x00}, 1, 0},
     {0x21, (uint8_t []){0x00}, 1, 0},
     {0x11, (uint8_t []){0x00}, 1, 120},
-    {0x29, (uint8_t []){0x00}, 1, 0},  
+    {0x29, (uint8_t []){0x00}, 1, 0},
 };
 
 class CustomBoard : public WifiBoard {
@@ -229,16 +229,16 @@ private:
         };
         ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_cfg, &i2c_bus_));
     }
-    
+
     void InitializeTca9554(void)
     {
         esp_err_t ret = esp_io_expander_new_i2c_tca9554(i2c_bus_, I2C_ADDRESS, &io_expander);
         if(ret != ESP_OK)
-            ESP_LOGE(TAG, "TCA9554 create returned error");        
+            ESP_LOGE(TAG, "TCA9554 create returned error");
 
         // uint32_t input_level_mask = 0;
-        // ret = esp_io_expander_set_dir(io_expander, IO_EXPANDER_PIN_NUM_0 | IO_EXPANDER_PIN_NUM_1, IO_EXPANDER_INPUT);               // 设置引脚 EXIO0 和 EXIO1 模式为输入 
-        // ret = esp_io_expander_get_level(io_expander, IO_EXPANDER_PIN_NUM_0 | IO_EXPANDER_PIN_NUM_1, &input_level_mask);             // 获取引脚 EXIO0 和 EXIO1 的电平状态,存放在 input_level_mask 中
+        // ret = esp_io_expander_set_dir(io_expander, IO_EXPANDER_PIN_NUM_0 | IO_EXPANDER_PIN_NUM_1, IO_EXPANDER_INPUT);               // 设置引脚 EXIO0 和 EXIO1 模式为输入
+        // ret = esp_io_expander_get_level(io_expander, IO_EXPANDER_PIN_NUM_0 | IO_EXPANDER_PIN_NUM_1, &input_level_mask);             // 获取引脚 EXIO0 和 EXIO1 的电平状态，存放在 input_level_mask 中
 
         // ret = esp_io_expander_set_dir(io_expander, IO_EXPANDER_PIN_NUM_2 | IO_EXPANDER_PIN_NUM_3, IO_EXPANDER_OUTPUT);              // 设置引脚 EXIO2 和 EXIO3 模式为输出
         // ret = esp_io_expander_set_level(io_expander, IO_EXPANDER_PIN_NUM_2 | IO_EXPANDER_PIN_NUM_3, 1);                             // 将引脚电平设置为 1
@@ -246,13 +246,13 @@ private:
 
         ret = esp_io_expander_set_dir(io_expander, IO_EXPANDER_PIN_NUM_0 | IO_EXPANDER_PIN_NUM_1, IO_EXPANDER_OUTPUT);                 // 设置引脚 EXIO0 和 EXIO1 模式为输出
         ESP_ERROR_CHECK(ret);
-        ret = esp_io_expander_set_level(io_expander, IO_EXPANDER_PIN_NUM_0 | IO_EXPANDER_PIN_NUM_1, 1);                                // 复位 LCD 与 TouchPad
+        ret = esp_io_expander_set_level(io_expander, IO_EXPANDER_PIN_NUM_0 | IO_EXPANDER_PIN_NUM_1, 1);                                // 复位 LCD 和 TouchPad
         ESP_ERROR_CHECK(ret);
         vTaskDelay(pdMS_TO_TICKS(300));
-        ret = esp_io_expander_set_level(io_expander, IO_EXPANDER_PIN_NUM_0 | IO_EXPANDER_PIN_NUM_1, 0);                                // 复位 LCD 与 TouchPad
+        ret = esp_io_expander_set_level(io_expander, IO_EXPANDER_PIN_NUM_0 | IO_EXPANDER_PIN_NUM_1, 0);                                // 复位 LCD 和 TouchPad
         ESP_ERROR_CHECK(ret);
         vTaskDelay(pdMS_TO_TICKS(300));
-        ret = esp_io_expander_set_level(io_expander, IO_EXPANDER_PIN_NUM_0 | IO_EXPANDER_PIN_NUM_1, 1);                                // 复位 LCD 与 TouchPad
+        ret = esp_io_expander_set_level(io_expander, IO_EXPANDER_PIN_NUM_0 | IO_EXPANDER_PIN_NUM_1, 1);                                // 复位 LCD 和 TouchPad
         ESP_ERROR_CHECK(ret);
     }
 
@@ -275,48 +275,48 @@ private:
         ESP_LOGI(TAG, "Install panel IO");
 
         esp_lcd_panel_io_spi_config_t io_config = {
-            .cs_gpio_num = QSPI_PIN_NUM_LCD_CS,               
-            .dc_gpio_num = -1,                  
-            .spi_mode = 0,                     
-            .pclk_hz = 3 * 1000 * 1000,      
-            .trans_queue_depth = 10,            
-            .on_color_trans_done = NULL,                            
-            .user_ctx = NULL,                   
-            .lcd_cmd_bits = 32,                 
-            .lcd_param_bits = 8,                
-            .flags = {                          
-            .dc_low_on_data = 0,            
-            .octal_mode = 0,                
-            .quad_mode = 1,                 
-            .sio_mode = 0,                  
-            .lsb_first = 0,                 
-            .cs_high_active = 0,            
-            },                                  
+            .cs_gpio_num = QSPI_PIN_NUM_LCD_CS,
+            .dc_gpio_num = -1,
+            .spi_mode = 0,
+            .pclk_hz = 3 * 1000 * 1000,
+            .trans_queue_depth = 10,
+            .on_color_trans_done = NULL,
+            .user_ctx = NULL,
+            .lcd_cmd_bits = 32,
+            .lcd_param_bits = 8,
+            .flags = {
+            .dc_low_on_data = 0,
+            .octal_mode = 0,
+            .quad_mode = 1,
+            .sio_mode = 0,
+            .lsb_first = 0,
+            .cs_high_active = 0,
+            },
         };
         ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)QSPI_LCD_HOST, &io_config, &panel_io));
 
         ESP_LOGI(TAG, "Install ST77916 panel driver");
-        
+
         st77916_vendor_config_t vendor_config = {
             .flags = {
                 .use_qspi_interface = 1,
             },
         };
-        
+
         printf("-------------------------------------- Version selection -------------------------------------- \r\n");
         esp_err_t ret;
         int lcd_cmd = 0x04;
-        uint8_t register_data[4]; 
+        uint8_t register_data[4];
         size_t param_size = sizeof(register_data);
         lcd_cmd &= 0xff;
         lcd_cmd <<= 8;
         lcd_cmd |= LCD_OPCODE_READ_CMD << 24;  // Use the read opcode instead of write
-        ret = esp_lcd_panel_io_rx_param(panel_io, lcd_cmd, register_data, param_size); 
+        ret = esp_lcd_panel_io_rx_param(panel_io, lcd_cmd, register_data, param_size);
         if (ret == ESP_OK) {
             printf("Register 0x04 data: %02x %02x %02x %02x\n", register_data[0], register_data[1], register_data[2], register_data[3]);
         } else {
             printf("Failed to read register 0x04, error code: %d\n", ret);
-        } 
+        }
         // panel_io_spi_del(io_handle);
         io_config.pclk_hz = 80 * 1000 * 1000;
         if (esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)QSPI_LCD_HOST, &io_config, &panel_io) != ESP_OK) {
@@ -324,7 +324,7 @@ private:
             return ;
         }
         printf("LCD communication parameters are set successfully -- SPI\r\n");
-        
+
         // Check register values and configure accordingly
         if (register_data[0] == 0x00 && register_data[1] == 0x7F && register_data[2] == 0x7F && register_data[3] == 0x7F) {
             // Handle the case where the register data matches this pattern
@@ -337,7 +337,7 @@ private:
             printf("Vendor-specific initialization for case 2.\n");
         }
         printf("------------------------------------- End of version selection------------------------------------- \r\n");
- 
+
         const esp_lcd_panel_dev_config_t panel_config = {
             .reset_gpio_num = QSPI_PIN_NUM_LCD_RST,
             .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,     // Implemented by LCD command `36h`
@@ -365,7 +365,7 @@ private:
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
     }
 
@@ -401,7 +401,7 @@ public:
     virtual Display* GetDisplay() override {
         return display_;
     }
-    
+
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;

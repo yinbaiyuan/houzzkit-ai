@@ -90,7 +90,7 @@ void InitializePowerManager() {
     void InitializeSt7735Display() {
         // esp_lcd_panel_io_handle_t panel_io = nullptr;
         // esp_lcd_panel_handle_t panel = nullptr;
-        // 液晶屏控制IO初始化
+        // 液晶屏控制 IO 初始化
         ESP_LOGD(TAG, "Install panel IO");
         esp_lcd_panel_io_spi_config_t io_config = {};
         io_config.cs_gpio_num = DISPLAY_CS_PIN;
@@ -109,7 +109,7 @@ void InitializePowerManager() {
         panel_config.rgb_ele_order = DISPLAY_RGB_ORDER;
         panel_config.bits_per_pixel = 16;
         ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(panel_io, &panel_config, &panel));
-        
+
         esp_lcd_panel_reset(panel);
 
         esp_lcd_panel_init(panel);
@@ -119,7 +119,7 @@ void InitializePowerManager() {
         display_ = new SpiLcdDisplay(panel_io, panel,
                                     DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
     }
- 
+
     void InitializeButtons() {
         boot_button_.OnClick([this]() {
             power_save_timer_->WakeUp();
@@ -127,13 +127,13 @@ void InitializePowerManager() {
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
 
         asr_button_.OnClick([this]() {
             power_save_timer_->WakeUp();
             std::string wake_word="你好小智";
-            Application::GetInstance().WakeWordInvoke(wake_word);
+            Board::GetInstance().GetVoiceController()->WakeWordInvoke(wake_word);
         });
     }
 
@@ -163,7 +163,7 @@ public:
     virtual Display* GetDisplay() override {
         return display_;
     }
-    
+
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;

@@ -84,7 +84,7 @@ private:
             GetDisplay()->SetPowerSaveMode(false);
             GetBacklight()->RestoreBrightness();
         });
-         
+
         power_save_timer_->SetEnabled(true);
     }
 
@@ -114,10 +114,10 @@ private:
         });
         main_button_.OnPressDown([this]() {
             power_save_timer_->WakeUp();
-            Application::GetInstance().StartListening();
+            Board::GetInstance().GetVoiceController()->StartListening();
         });
         main_button_.OnPressUp([this]() {
-            Application::GetInstance().StopListening();
+            Board::GetInstance().GetVoiceController()->StopListening();
         });
 
         left_button_.OnClick([this]() {
@@ -180,7 +180,7 @@ private:
     void InitializeNv3023Display(){
         // esp_lcd_panel_io_handle_t panel_io = nullptr;
         // esp_lcd_panel_handle_t panel = nullptr;
-        // 液晶屏控制IO初始化
+        // 液晶屏控制 IO 初始化
         ESP_LOGD(TAG, "Install panel IO");
         esp_lcd_panel_io_spi_config_t io_config = {};
         io_config.cs_gpio_num = DISPLAY_CS_PIN;
@@ -214,11 +214,11 @@ private:
 public:
     magiclick_2p4() :
         main_button_(MAIN_BUTTON_GPIO),
-        left_button_(LEFT_BUTTON_GPIO), 
+        left_button_(LEFT_BUTTON_GPIO),
         right_button_(RIGHT_BUTTON_GPIO) {
         InitializeLedPower();
         InitializePowerManager();
-        InitializePowerSaveTimer();        
+        InitializePowerSaveTimer();
         InitializeCodecI2c();
         InitializeButtons();
         InitializeSpi();
@@ -241,7 +241,7 @@ public:
     virtual Display* GetDisplay() override {
         return display_;
     }
-    
+
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;

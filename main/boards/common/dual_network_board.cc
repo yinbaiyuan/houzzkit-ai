@@ -53,7 +53,7 @@ void DualNetworkBoard::SwitchNetworkType() {
     }
     vTaskDelay(pdMS_TO_TICKS(1000));
     auto& app = Application::GetInstance();
-    app.Reboot();
+    app.RequestReboot();
 }
 
  

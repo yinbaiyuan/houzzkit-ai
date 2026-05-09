@@ -9,8 +9,8 @@
 
 #include "application.h"
 #include "system_info.h"
-
 #include "esphome_device.h"
+#include "esphome_voice_device.h"
 
 #define TAG "main"
 
@@ -19,8 +19,9 @@ extern "C" void app_main(void)
     // Initialize the default event loop
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    // Initialize NVS flash 
+    // Initialize NVS flash
     ESPHomeDevice::GetInstance().setupPreferences();
+    ESPHomeVoiceDevice::GetInstance().setupPreferences();
 
     // Launch the application
     auto& app = Application::GetInstance();

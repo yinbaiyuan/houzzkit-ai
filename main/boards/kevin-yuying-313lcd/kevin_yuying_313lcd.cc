@@ -40,7 +40,7 @@ private:
         };
         esp_lcd_panel_io_3wire_spi_config_t io_config = GC9503_PANEL_IO_3WIRE_SPI_CONFIG(line_config, 0);
         (esp_lcd_new_panel_io_3wire_spi(&io_config, &panel_io));
-    
+
         ESP_LOGI(TAG, "Install RGB LCD panel driver");
         esp_lcd_panel_handle_t panel_handle = NULL;
         esp_lcd_rgb_panel_config_t rgb_config = {
@@ -78,9 +78,9 @@ private:
                 .fb_in_psram = true, // allocate frame buffer in PSRAM
             }
         };
-    
+
         ESP_LOGI(TAG, "Initialize RGB LCD panel");
-    
+
         gc9503_vendor_config_t vendor_config = {
             .rgb_config = &rgb_config,
             .flags = {
@@ -128,10 +128,10 @@ private:
             }
         });
         boot_button_.OnPressDown([this]() {
-            Application::GetInstance().StartListening();
+            Board::GetInstance().GetVoiceController()->StartListening();
         });
         boot_button_.OnPressUp([this]() {
-            Application::GetInstance().StopListening();
+            Board::GetInstance().GetVoiceController()->StopListening();
         });
     }
 
@@ -153,7 +153,7 @@ public:
     virtual Display* GetDisplay() override {
         return display_;
     }
-    
+
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;

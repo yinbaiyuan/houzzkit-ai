@@ -5,14 +5,18 @@ enum DeviceState {
     kDeviceStateUnknown,
     kDeviceStateStarting,
     kDeviceStateWifiConfiguring,
-    kDeviceStateIdle,
-    kDeviceStateConnecting,
-    kDeviceStateListening,
-    kDeviceStateSpeaking,
+    kDeviceStateRunning,
     kDeviceStateUpgrading,
     kDeviceStateActivating,
-    kDeviceStateAudioTesting,
     kDeviceStateFatalError
 };
 
-#endif // _DEVICE_STATE_H_ 
+enum VoiceInteractionState {
+    kVoiceInteractionStateIdle,
+    kVoiceInteractionStateConnecting,
+    kVoiceInteractionStateListening,
+    kVoiceInteractionStateSpeaking,
+    kVoiceInteractionStateAudioTesting
+};
+
+#endif // _DEVICE_STATE_H_

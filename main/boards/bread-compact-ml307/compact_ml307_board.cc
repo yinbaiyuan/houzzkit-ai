@@ -102,7 +102,7 @@ private:
                     wifi_board.ResetWifiConfiguration();
                 }
             }
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
         boot_button_.OnDoubleClick([this]() {
             auto& app = Application::GetInstance();
@@ -112,10 +112,10 @@ private:
         });
 
         touch_button_.OnPressDown([this]() {
-            Application::GetInstance().StartListening();
+            Board::GetInstance().GetVoiceController()->StartListening();
         });
         touch_button_.OnPressUp([this]() {
-            Application::GetInstance().StopListening();
+            Board::GetInstance().GetVoiceController()->StopListening();
         });
 
         volume_up_button_.OnClick([this]() {

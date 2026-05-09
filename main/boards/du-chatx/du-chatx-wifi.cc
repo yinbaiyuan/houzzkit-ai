@@ -34,7 +34,7 @@ private:
                 power_save_timer_->SetEnabled(false);
             } else {
                 power_save_timer_->SetEnabled(true);
-            } 
+            }
         });
     }
     void InitializePowerSaveTimer() {
@@ -45,11 +45,11 @@ private:
         power_save_timer_ = new PowerSaveTimer(-1, 60, 300);
         power_save_timer_->OnEnterSleepMode([this]() {
             GetDisplay()->SetPowerSaveMode(true);
-            GetBacklight()->SetBrightness(1); 
+            GetBacklight()->SetBrightness(1);
         });
         power_save_timer_->OnExitSleepMode([this]() {
             GetDisplay()->SetPowerSaveMode(false);
-            GetBacklight()->RestoreBrightness(); 
+            GetBacklight()->RestoreBrightness();
         });
         power_save_timer_->OnShutdownRequest([this]() {
             ESP_LOGI(TAG, "Shutting down");
@@ -57,7 +57,7 @@ private:
             // 启用保持功能，确保睡眠期间电平不变
             rtc_gpio_hold_en(GPIO_NUM_1);
             esp_lcd_panel_disp_on_off(panel_, false); //关闭显示
-            esp_deep_sleep_start(); 
+            esp_deep_sleep_start();
         });
         power_save_timer_->SetEnabled(true);
     }
@@ -74,7 +74,7 @@ private:
 
     void InitializeLcdDisplay() {
         esp_lcd_panel_io_handle_t panel_io = nullptr;
-        // 液晶屏控制IO初始化
+        // 液晶屏控制 IO 初始化
         ESP_LOGD(TAG, "Install panel_ IO");
         esp_lcd_panel_io_spi_config_t io_config = {};
         io_config.cs_gpio_num = DISPLAY_CS_PIN;
@@ -108,7 +108,7 @@ private:
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState(); 
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
     }
 

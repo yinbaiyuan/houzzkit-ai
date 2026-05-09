@@ -3,6 +3,7 @@
 #include "system_info.h"
 #include "application.h"
 #include "settings.h"
+#include "audio_service.h"
 
 #include <cstring>
 #include <cJSON.h>
@@ -175,7 +176,7 @@ bool WebsocketProtocol::OpenAudioChannel() {
     if (!websocket_->Connect(url.c_str())) {
         ESP_LOGE(TAG, "Failed to connect to websocket server");
         SetError(Lang::Strings::SERVER_NOT_CONNECTED);
-        
+
         return false;
     }
 
@@ -208,7 +209,10 @@ std::string WebsocketProtocol::GetHelloMessage() {
     cJSON* features = cJSON_CreateObject();
     bool feature_aec = false;
     bool feature_daec = false;
-    bool supports_device_aec = Application::GetInstance().GetAudioService().SupportsDeviceAec();
+    bool supports_device_aec = false;
+#if CONFIG_USE_VOICE_DIALOGUE
+    supports_device_aec = Board::GetInstance().GetVoiceController()->GetAudioService().SupportsDeviceAec();
+#endif
 #if CONFIG_USE_SERVER_AEC
     feature_aec = true;
     cJSON_AddBoolToObject(features, "aec", true);
@@ -220,6 +224,7 @@ std::string WebsocketProtocol::GetHelloMessage() {
 #endif
     cJSON_AddBoolToObject(features, "mcp", true);
     cJSON_AddItemToObject(root, "features", features);
+#if CONFIG_USE_VOICE_DIALOGUE
     cJSON_AddStringToObject(root, "transport", "websocket");
     cJSON* audio_params = cJSON_CreateObject();
     cJSON_AddStringToObject(audio_params, "format", "opus");
@@ -227,6 +232,9 @@ std::string WebsocketProtocol::GetHelloMessage() {
     cJSON_AddNumberToObject(audio_params, "channels", 1);
     cJSON_AddNumberToObject(audio_params, "frame_duration", OPUS_FRAME_DURATION_MS);
     cJSON_AddItemToObject(root, "audio_params", audio_params);
+#else
+    cJSON_AddStringToObject(root, "transport", "websocket");
+#endif
     auto json_str = cJSON_PrintUnformatted(root);
     std::string message(json_str);
     cJSON_free(json_str);

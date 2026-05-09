@@ -63,13 +63,13 @@ private:
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
         boot_button_.OnPressDown([this]() {
-            Application::GetInstance().StartListening();
+            Board::GetInstance().GetVoiceController()->StartListening();
         });
         boot_button_.OnPressUp([this]() {
-            Application::GetInstance().StopListening();
+            Board::GetInstance().GetVoiceController()->StopListening();
         });
 
         volume_up_button_.OnClick([this]() {
@@ -117,7 +117,7 @@ private:
     void InitializeSt7735Display() {
         esp_lcd_panel_io_handle_t panel_io = nullptr;
         esp_lcd_panel_handle_t panel = nullptr;
-        // 液晶屏控制IO初始化
+        // 液晶屏控制 IO 初始化
         ESP_LOGD(TAG, "Install panel IO");
         esp_lcd_panel_io_spi_config_t io_config = {};
         io_config.cs_gpio_num = LCD_CS_PIN;
@@ -170,7 +170,7 @@ private:
         esp_lcd_panel_io_tx_param(panel_io, 0xe1, data1, 16);
 
         esp_lcd_panel_invert_color(panel, true);
-        esp_lcd_panel_swap_xy(panel, DISPLAY_SWAP_XY); 
+        esp_lcd_panel_swap_xy(panel, DISPLAY_SWAP_XY);
         esp_lcd_panel_mirror(panel, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y);
 
         display_ = new SpiLcdDisplay(panel_io, panel,
@@ -178,10 +178,10 @@ private:
     }
 
 public:
-    atk_dnesp32s3m_wifi() : 
+    atk_dnesp32s3m_wifi() :
         boot_button_(BOOT_BUTTON_GPIO),
         volume_up_button_(VOLUME_UP_BUTTON_GPIO),
-        volume_down_button_(VOLUME_DOWN_BUTTON_GPIO), 
+        volume_down_button_(VOLUME_DOWN_BUTTON_GPIO),
         phone_button_(PHONE_CK_PIN, true) {
         InitializeI2c();
         InitializeSpi();
@@ -199,16 +199,16 @@ public:
 
     virtual AudioCodec* GetAudioCodec() override {
         static Es8388AudioCodec audio_codec(
-            i2c_bus_, 
-            I2C_NUM_0, 
-            AUDIO_INPUT_SAMPLE_RATE, 
+            i2c_bus_,
+            I2C_NUM_0,
+            AUDIO_INPUT_SAMPLE_RATE,
             AUDIO_OUTPUT_SAMPLE_RATE,
-            AUDIO_I2S_GPIO_MCLK, 
-            AUDIO_I2S_GPIO_BCLK, 
-            AUDIO_I2S_GPIO_WS, 
-            AUDIO_I2S_GPIO_DOUT, 
+            AUDIO_I2S_GPIO_MCLK,
+            AUDIO_I2S_GPIO_BCLK,
+            AUDIO_I2S_GPIO_WS,
+            AUDIO_I2S_GPIO_DOUT,
             AUDIO_I2S_GPIO_DIN,
-            GPIO_NUM_NC, 
+            GPIO_NUM_NC,
             AUDIO_CODEC_ES8388_ADDR
         );
         return &audio_codec;

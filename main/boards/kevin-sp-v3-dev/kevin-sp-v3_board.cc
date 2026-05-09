@@ -44,17 +44,17 @@ private:
             }
         });
         boot_button_.OnPressDown([this]() {
-            Application::GetInstance().StartListening();
+            Board::GetInstance().GetVoiceController()->StartListening();
         });
         boot_button_.OnPressUp([this]() {
-            Application::GetInstance().StopListening();
+            Board::GetInstance().GetVoiceController()->StopListening();
         });
     }
 
     void InitializeSt7789Display() {
         esp_lcd_panel_io_handle_t panel_io = nullptr;
         esp_lcd_panel_handle_t panel = nullptr;
-        // 液晶屏控制IO初始化
+        // 液晶屏控制 IO 初始化
         ESP_LOGD(TAG, "Install panel IO");
         esp_lcd_panel_io_spi_config_t io_config = {};
         io_config.cs_gpio_num = GPIO_NUM_14;
@@ -101,7 +101,7 @@ private:
         config.pin_pclk = CAMERA_PIN_PCLK;
         config.pin_vsync = CAMERA_PIN_VSYNC;
         config.pin_href = CAMERA_PIN_HREF;
-        config.pin_sccb_sda = CAMERA_PIN_SIOD;   // 这里写-1 表示使用已经初始化的I2C接口
+        config.pin_sccb_sda = CAMERA_PIN_SIOD;   // 这里写 -1 表示使用已经初始化的 I2C 接口
         config.pin_sccb_scl = CAMERA_PIN_SIOC;
         config.sccb_i2c_port = 1;
         config.pin_pwdn = CAMERA_PIN_PWDN;
@@ -122,7 +122,7 @@ public:
         ESP_LOGI(TAG, "Initializing KEVIN_SP_V3 Board");
         InitializeSpi();
         InitializeButtons();
-        InitializeSt7789Display();  
+        InitializeSt7789Display();
         InitializeCamera();
         GetBacklight()->RestoreBrightness();
     }
@@ -141,12 +141,12 @@ public:
     virtual Display *GetDisplay() override {
         return display_;
     }
-    
+
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;
     }
-    
+
     virtual Camera* GetCamera() override {
         return camera_;
     }

@@ -20,7 +20,7 @@
 #define TAG "esp_sparkbot"
 
 class SparkBotEs8311AudioCodec : public Es8311AudioCodec {
-private:    
+private:
 
 public:
     SparkBotEs8311AudioCodec(void* i2c_master_handle, i2c_port_t i2c_port, int input_sample_rate, int output_sample_rate,
@@ -83,7 +83,7 @@ private:
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
     }
 
@@ -91,7 +91,7 @@ private:
         esp_lcd_panel_io_handle_t panel_io = nullptr;
         esp_lcd_panel_handle_t panel = nullptr;
 
-        // 液晶屏控制IO初始化
+        // 液晶屏控制 IO 初始化
         ESP_LOGD(TAG, "Install panel IO");
         esp_lcd_panel_io_spi_config_t io_config = {};
         io_config.cs_gpio_num = DISPLAY_CS_GPIO;
@@ -111,7 +111,7 @@ private:
         panel_config.rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB;
         panel_config.bits_per_pixel = 16;
         ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(panel_io, &panel_config, &panel));
-        
+
         esp_lcd_panel_reset(panel);
         esp_lcd_panel_init(panel);
         esp_lcd_panel_invert_color(panel, true);
@@ -146,15 +146,15 @@ private:
         camera_config.ledc_timer = SPARKBOT_LEDC_TIMER;
         camera_config.ledc_channel = SPARKBOT_LEDC_CHANNEL;
         camera_config.fb_location = CAMERA_FB_IN_PSRAM;
-        
+
         camera_config.sccb_i2c_port = I2C_NUM_0;
-        
+
         camera_config.pixel_format = PIXFORMAT_RGB565;
         camera_config.frame_size = FRAMESIZE_240X240;
         camera_config.jpeg_quality = 12;
         camera_config.fb_count = 1;
         camera_config.grab_mode = CAMERA_GRAB_WHEN_EMPTY;
-        
+
         camera_ = new Esp32Camera(camera_config);
 
         Settings settings("sparkbot", false);
@@ -213,17 +213,17 @@ private:
             return true;
         });
 
-        mcp_server.AddTool("self.chassis.turn_left", "向左转", PropertyList(), [this](const PropertyList& properties) -> ReturnValue {
+        mcp_server.AddTool("self.chassis.turn_left", "鍚戝乏杞?, PropertyList(), [this](const PropertyList& properties) -> ReturnValue {
             SendUartMessage("x-1.0 y0.0");
             return true;
         });
 
-        mcp_server.AddTool("self.chassis.turn_right", "向右转", PropertyList(), [this](const PropertyList& properties) -> ReturnValue {
+        mcp_server.AddTool("self.chassis.turn_right", "鍚戝彸杞?, PropertyList(), [this](const PropertyList& properties) -> ReturnValue {
             SendUartMessage("x1.0 y0.0");
             return true;
         });
-        
-        mcp_server.AddTool("self.chassis.dance", "跳舞", PropertyList(), [this](const PropertyList& properties) -> ReturnValue {
+
+        mcp_server.AddTool("self.chassis.dance", "璺宠垶", PropertyList(), [this](const PropertyList& properties) -> ReturnValue {
             SendUartMessage("d1");
             light_mode_ = LIGHT_MODE_MAX;
             return true;
@@ -245,16 +245,16 @@ private:
             throw std::runtime_error("Invalid light mode");
         });
 
-        mcp_server.AddTool("self.camera.set_camera_flipped", "翻转摄像头图像方向", PropertyList(), [this](const PropertyList& properties) -> ReturnValue {
+        mcp_server.AddTool("self.camera.set_camera_flipped", "缈昏浆鎽勫儚澶村浘鍍忔柟鍚?, PropertyList(), [this](const PropertyList& properties) -> ReturnValue {
             Settings settings("sparkbot", true);
             // 考虑到部分复刻使用了不可动摄像头的设计，默认启用翻转
             bool flipped = !static_cast<bool>(settings.GetInt("camera-flipped", 1));
-            
+
             camera_->SetHMirror(flipped);
             camera_->SetVFlip(flipped);
-            
+
             settings.SetInt("camera-flipped", flipped ? 1 : 0);
-            
+
             return true;
         });
     }

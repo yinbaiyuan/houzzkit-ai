@@ -98,9 +98,9 @@ private:
                 .fb_in_psram = true, // allocate frame buffer in PSRAM
             }
         };
-    
+
         ESP_LOGI(TAG, "Initialize RGB LCD panel");
-    
+
         gc9503_vendor_config_t vendor_config = {
             .rgb_config = &rgb_config,
             .flags = {
@@ -142,7 +142,7 @@ private:
         ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_cfg, &i2c_bus_));
 
          //add support ev board lcd amp
-        //初始化扩展io口
+        //初始化扩展 IO 口
         esp_io_expander_new_i2c_tca9554(i2c_bus_, 0x20, &expander);
         /* Setup power amplifier pin, set default to enable */
         esp_io_expander_set_dir(expander, BSP_POWER_AMP_IO, IO_EXPANDER_OUTPUT);
@@ -158,10 +158,10 @@ private:
             }
         });
         boot_button_.OnPressDown([this]() {
-            Application::GetInstance().StartListening();
+            Board::GetInstance().GetVoiceController()->StartListening();
         });
         boot_button_.OnPressUp([this]() {
-            Application::GetInstance().StopListening();
+            Board::GetInstance().GetVoiceController()->StopListening();
         });
     }
 
@@ -189,7 +189,7 @@ private:
         ESP_ERROR_CHECK(esp_lcd_touch_new_i2c_gt1151(tp_io_handle, &tp_cfg, &tp));
 
         const lvgl_port_touch_cfg_t touch_cfg = {
-            .disp = lv_display_get_default(), 
+            .disp = lv_display_get_default(),
             .handle = tp,
         };
         lvgl_port_add_touch(&touch_cfg);
@@ -205,17 +205,17 @@ public:
 
     virtual AudioCodec* GetAudioCodec() override {
         static BoxAudioCodec audio_codec(
-            i2c_bus_, 
-            AUDIO_INPUT_SAMPLE_RATE, 
+            i2c_bus_,
+            AUDIO_INPUT_SAMPLE_RATE,
             AUDIO_OUTPUT_SAMPLE_RATE,
-            AUDIO_I2S_GPIO_MCLK, 
-            AUDIO_I2S_GPIO_BCLK, 
-            AUDIO_I2S_GPIO_WS, 
-            AUDIO_I2S_GPIO_DOUT, 
+            AUDIO_I2S_GPIO_MCLK,
+            AUDIO_I2S_GPIO_BCLK,
+            AUDIO_I2S_GPIO_WS,
+            AUDIO_I2S_GPIO_DOUT,
             AUDIO_I2S_GPIO_DIN,
-            GPIO_NUM_NC, 
-            AUDIO_CODEC_ES8311_ADDR, 
-            AUDIO_CODEC_ES7210_ADDR, 
+            GPIO_NUM_NC,
+            AUDIO_CODEC_ES8311_ADDR,
+            AUDIO_CODEC_ES7210_ADDR,
             true);
         return &audio_codec;
     }
@@ -223,8 +223,8 @@ public:
     virtual Display* GetDisplay() override {
         return display_;
     }
-    
-    //添加彩灯显示状态，如果亮度太暗可以去更改默认亮度值 DEFAULT_BRIGHTNESS 在led的sigle_led.cc中
+
+    //添加彩灯显示状态，如果亮度太暗可以去更改默认亮度 DEFAULT_BRIGHTNESS，在 led 的 single_led.cc 中
     virtual Led* GetLed() override {
         static SingleLed led(BUILTIN_LED_GPIO);
         return &led;

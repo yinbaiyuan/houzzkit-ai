@@ -1,5 +1,7 @@
 #include "power_save_timer.h"
 #include "application.h"
+#include "audio_codec.h"
+#include "audio_service.h"
 #include "settings.h"
 
 #include <esp_log.h>
@@ -76,13 +78,15 @@ void PowerSaveTimer::PowerSaveCheck() {
             }
 
             if (cpu_max_freq_ != -1) {
+#if CONFIG_USE_VOICE_DIALOGUE
                 // Disable wake word detection
-                auto& audio_service = app.GetAudioService();
+                auto& audio_service = Board::GetInstance().GetVoiceController()->GetAudioService();
                 is_wake_word_running_ = audio_service.IsWakeWordRunning();
                 if (is_wake_word_running_) {
                     audio_service.EnableWakeWordDetection(false);
                     vTaskDelay(pdMS_TO_TICKS(100));
                 }
+#endif
                 // Disable audio input
                 auto codec = Board::GetInstance().GetAudioCodec();
                 if (codec) {
@@ -118,11 +122,12 @@ void PowerSaveTimer::WakeUp() {
             esp_pm_configure(&pm_config);
 
             // Enable wake word detection
-            auto& app = Application::GetInstance();
-            auto& audio_service = app.GetAudioService();
+#if CONFIG_USE_VOICE_DIALOGUE
+            auto& audio_service = Board::GetInstance().GetVoiceController()->GetAudioService();
             if (is_wake_word_running_) {
                 audio_service.EnableWakeWordDetection(true);
             }
+#endif
         }
 
         if (on_exit_sleep_mode_) {

@@ -132,7 +132,7 @@ private:
                 ResetWifiConfiguration();
             }
             if (!press_to_talk_tool_ || !press_to_talk_tool_->IsPressToTalkEnabled()) {
-                app.ToggleChatState();
+                Board::GetInstance().GetVoiceController()->ToggleChatState();
             }
         });
         boot_button_.OnPressDown([this]() {
@@ -140,12 +140,12 @@ private:
                 power_save_timer_->WakeUp();
             }
             if (press_to_talk_tool_ && press_to_talk_tool_->IsPressToTalkEnabled()) {
-                Application::GetInstance().StartListening();
+                Board::GetInstance().GetVoiceController()->StartListening();
             }
         });
         boot_button_.OnPressUp([this]() {
             if (press_to_talk_tool_ && press_to_talk_tool_->IsPressToTalkEnabled()) {
-                Application::GetInstance().StopListening();
+                Board::GetInstance().GetVoiceController()->StopListening();
             }
         });
     }
@@ -156,7 +156,7 @@ private:
     }
 
 public:
-    XminiC3Board() : boot_button_(BOOT_BUTTON_GPIO, false, 0, 0, true) {  
+    XminiC3Board() : boot_button_(BOOT_BUTTON_GPIO, false, 0, 0, true) {
         InitializePowerManager();
         InitializePowerSaveTimer();
         InitializeCodecI2c();

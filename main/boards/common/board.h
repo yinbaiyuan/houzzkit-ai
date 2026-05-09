@@ -12,11 +12,13 @@
 #include "backlight.h"
 #include "camera.h"
 #include "assets.h"
+#include "voice/voice_controller.h"
 
 
 void* create_board();
 class AudioCodec;
 class Display;
+class ESPHomeDevice;
 class Board {
 private:
     Board(const Board&) = delete; // 禁用拷贝构造函数
@@ -58,6 +60,8 @@ public:
 
     virtual std::string getDeviceName() = 0;
     virtual void setDeviceNamePrefix(const std::string &deviceNamePrefix) { deviceNamePrefix_ = deviceNamePrefix; }
+    virtual VoiceController* GetVoiceController();
+    virtual void RegisterESPHomeEntities(ESPHomeDevice& device) {}
 };
 
 #define DECLARE_BOARD(BOARD_CLASS_NAME) \

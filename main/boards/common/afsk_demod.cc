@@ -1,6 +1,8 @@
 #include "afsk_demod.h"
 #include <cstring>
 #include <algorithm>
+#include "board.h"
+#include "audio_service.h"
 #include "esp_log.h"
 #include "display.h"
 
@@ -18,6 +20,14 @@ namespace audio_wifi_config
                                         size_t input_channels
                                     )
     {
+#if !CONFIG_USE_VOICE_DIALOGUE
+        (void)app;
+        (void)wifi_ap;
+        (void)display;
+        (void)input_channels;
+        ESP_LOGW(kLogTag, "Audio WiFi configuration is disabled because voice dialogue is disabled");
+        vTaskDelete(NULL);
+#else
         const int kInputSampleRate = 16000;                                    // Input sampling rate
         const float kDownsampleStep = static_cast<float>(kInputSampleRate) / static_cast<float>(kAudioSampleRate); // Downsampling step
         std::vector<int16_t> audio_data;
@@ -32,8 +42,8 @@ namespace audio_wifi_config
                 vTaskDelay(pdMS_TO_TICKS(100));
                 continue;
             }
-            
-            if (!app->GetAudioService().ReadAudioData(audio_data, 16000, 480)) { // 16kHz, 480 samples corresponds to 30ms data
+
+            if (!Board::GetInstance().GetVoiceController()->GetAudioService().ReadAudioData(audio_data, 16000, 480)) { // 16kHz, 480 samples corresponds to 30ms data
                 // 读取音频失败，短暂延迟后重试
                 ESP_LOGI(kLogTag, "Failed to read audio data, retrying.");
                 vTaskDelay(pdMS_TO_TICKS(10));
@@ -47,7 +57,7 @@ namespace audio_wifi_config
                 }
                 audio_data = std::move(mono_data);
             }
-            
+
             // Downsample the audio data
             std::vector<float> downsampled_data;
             size_t last_index = 0;
@@ -67,17 +77,17 @@ namespace audio_wifi_config
                     downsampled_data.push_back(static_cast<float>(sample));
                 }
             }
-            
+
             // Process audio samples to get probability data
             auto probabilities = signal_processor.ProcessAudioSamples(downsampled_data);
-            
+
             // Feed probability data to the data buffer
             if (data_buffer.ProcessProbabilityData(probabilities, 0.5f)) {
                 // If complete data was received, extract WiFi credentials
                 if (data_buffer.decoded_text.has_value()) {
                     ESP_LOGI(kLogTag, "Received text data: %s", data_buffer.decoded_text->c_str());
                     display->SetChatMessage("system", data_buffer.decoded_text->c_str());
-                    
+
                     // Split SSID and password by newline character
                     std::string wifi_ssid, wifi_password;
                     size_t newline_position = data_buffer.decoded_text->find('\n');
@@ -89,7 +99,7 @@ namespace audio_wifi_config
                         ESP_LOGE(kLogTag, "Invalid data format, no newline character found");
                         continue;
                     }
-                    
+
                     if (wifi_ap->ConnectToWifi(wifi_ssid, wifi_password)) {
                         wifi_ap->Save(wifi_ssid, wifi_password);  // Save WiFi credentials
                         esp_restart();                            // Restart device to apply new WiFi configuration
@@ -101,6 +111,7 @@ namespace audio_wifi_config
             }
             vTaskDelay(pdMS_TO_TICKS(1));  // 1ms delay
         }
+#endif
     }
 
     // Default start and end transmission identifiers
@@ -158,7 +169,7 @@ namespace audio_wifi_config
         float real_part = cos_coefficient_ * s_minus_1 - s_minus_2;  // Real part
         float imaginary_part = sin_coefficient_ * s_minus_1;         // Imaginary part
 
-        return std::sqrt(real_part * real_part + imaginary_part * imaginary_part) / 
+        return std::sqrt(real_part * real_part + imaginary_part * imaginary_part) /
                (static_cast<float>(window_size_) / 2.0f);
     }
 
@@ -203,7 +214,7 @@ namespace audio_wifi_config
                     float space_amplitude = space_detector_->GetAmplitude(); // Space amplitude
 
                     // Avoid division by zero
-                    float mark_probability = mark_amplitude / 
+                    float mark_probability = mark_amplitude /
                                            (space_amplitude + mark_amplitude + std::numeric_limits<float>::epsilon());
                     result.push_back(mark_probability);
 
@@ -327,7 +338,7 @@ namespace audio_wifi_config
                             uint8_t calculated_checksum = CalculateChecksum(result);
                             if (calculated_checksum != received_checksum) {
                                 // Checksum mismatch
-                                ESP_LOGW(kLogTag, "Checksum mismatch: expected %d, got %d", 
+                                ESP_LOGW(kLogTag, "Checksum mismatch: expected %d, got %d",
                                         received_checksum, calculated_checksum);
                                 ClearBuffers();
                                 return false;

@@ -34,27 +34,27 @@ class Pmic : public Axp2101 {
         Pmic(i2c_master_bus_handle_t i2c_bus, uint8_t addr) : Axp2101(i2c_bus, addr) {
             WriteReg(0x22, 0b110); // PWRON > OFFLEVEL as POWEROFF Source enable
             WriteReg(0x27, 0x10);  // hold 4s to power off
-    
+
             // Disable All DCs but DC1
             WriteReg(0x80, 0x01);
             // Disable All LDOs
             WriteReg(0x90, 0x00);
             WriteReg(0x91, 0x00);
-    
+
             // Set DC1 to 3.3V
             WriteReg(0x82, (3300 - 1500) / 100);
-    
+
             // Set ALDO1 to 3.3V
             WriteReg(0x92, (3300 - 500) / 100);
 
             WriteReg(0x96, (1500 - 500) / 100);
             WriteReg(0x97, (2800 - 500) / 100);
-    
-            // Enable ALDO1 BLDO1 BLDO2 
+
+            // Enable ALDO1 BLDO1 BLDO2
             WriteReg(0x90, 0x31);
-        
+
             WriteReg(0x64, 0x02); // CV charger voltage setting to 4.1V
-            
+
             WriteReg(0x61, 0x02); // set Main battery precharge current to 50mA
             WriteReg(0x62, 0x08); // set Main battery charger current to 400mA ( 0x08-200mA, 0x09-300mA, 0x0A-400mA )
             WriteReg(0x63, 0x01); // set Main battery term charge current to 25mA
@@ -141,13 +141,13 @@ private:
         };
         ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_cfg, &i2c_bus_));
     }
-    
+
     void InitializeTca9554(void)
     {
         esp_err_t ret = esp_io_expander_new_i2c_tca9554(i2c_bus_, ESP_IO_EXPANDER_I2C_TCA9554_ADDRESS_000, &io_expander);
         if(ret != ESP_OK)
-        ESP_LOGE(TAG, "TCA9554 create returned error");        
-        ret = esp_io_expander_set_dir(io_expander, IO_EXPANDER_PIN_NUM_0 | IO_EXPANDER_PIN_NUM_1, IO_EXPANDER_OUTPUT);         
+        ESP_LOGE(TAG, "TCA9554 create returned error");
+        ret = esp_io_expander_set_dir(io_expander, IO_EXPANDER_PIN_NUM_0 | IO_EXPANDER_PIN_NUM_1, IO_EXPANDER_OUTPUT);
         ESP_ERROR_CHECK(ret);
         vTaskDelay(pdMS_TO_TICKS(100));
         ret = esp_io_expander_set_level(io_expander, IO_EXPANDER_PIN_NUM_0 | IO_EXPANDER_PIN_NUM_1, 0);
@@ -176,7 +176,7 @@ private:
     void InitializeCamera() {
         camera_config_t config = {};
 
-        config.pin_pwdn = CAM_PIN_PWDN;  
+        config.pin_pwdn = CAM_PIN_PWDN;
         config.pin_reset = CAM_PIN_RESET;
         config.pin_xclk = CAM_PIN_XCLK;
         config.pin_sccb_sda = CAM_PIN_SIOD;
@@ -219,7 +219,7 @@ private:
             esp_camera_deinit();// 释放之前的摄像头资源,为正确初始化做准备
             camera_ = new Esp32Camera(config);
         }
-        
+
     }
 
     void InitializeTouch()
@@ -247,7 +247,7 @@ private:
         ESP_LOGI(TAG, "Initialize touch controller");
         ESP_ERROR_CHECK(esp_lcd_touch_new_i2c_ft5x06(tp_io_handle, &tp_cfg, &tp));
         const lvgl_port_touch_cfg_t touch_cfg = {
-            .disp = lv_display_get_default(), 
+            .disp = lv_display_get_default(),
             .handle = tp,
         };
         lvgl_port_add_touch(&touch_cfg);
@@ -257,7 +257,7 @@ private:
     void InitializeLcdDisplay() {
         esp_lcd_panel_io_handle_t panel_io = nullptr;
         esp_lcd_panel_handle_t panel = nullptr;
-        // 液晶屏控制IO初始化
+        // 液晶屏控制 IO 初始化
         ESP_LOGI(TAG, "Install panel IO");
         esp_lcd_panel_io_spi_config_t io_config = {};
         io_config.cs_gpio_num = DISPLAY_CS_PIN;
@@ -272,7 +272,7 @@ private:
         st7796_vendor_config_t st7796_vendor_config = {
             .init_cmds = st7796_lcd_init_cmds,
             .init_cmds_size = sizeof(st7796_lcd_init_cmds) / sizeof(st7796_lcd_init_cmd_t),
-        };      
+        };
 
         // 初始化液晶屏驱动芯片
         ESP_LOGI(TAG, "Install LCD driver");
@@ -285,7 +285,7 @@ private:
         ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(panel_io, &panel_config, &panel));
 
         esp_lcd_panel_reset(panel);
- 
+
         esp_lcd_panel_init(panel);
         esp_lcd_panel_invert_color(panel, DISPLAY_INVERT_COLOR);
         esp_lcd_panel_swap_xy(panel, DISPLAY_SWAP_XY);
@@ -301,7 +301,7 @@ private:
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
     }
 
@@ -348,7 +348,7 @@ public:
     virtual Display* GetDisplay() override {
         return display_;
     }
-    
+
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;

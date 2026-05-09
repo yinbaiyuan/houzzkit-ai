@@ -240,7 +240,7 @@ public:
 
         int16_t voltage = static_cast<uint16_t>(read_buffer_[1] << 8 | read_buffer_[0]);
         int16_t current = static_cast<int16_t>(read_buffer_[3] << 8 | read_buffer_[2]);
-        
+
         // Use the variables to avoid warnings (can be removed if actual implementation uses them)
         (void)voltage;
         (void)current;
@@ -479,7 +479,7 @@ private:
                             !WifiStation::GetInstance().IsConnected()) {
                         board.ResetWifiConfiguration();
                     } else {
-                        app.ToggleChatState();
+                        Board::GetInstance().GetVoiceController()->ToggleChatState();
                     }
                 }
             }
@@ -571,7 +571,7 @@ private:
                 ESP_LOGI(TAG, "Boot button pressed, enter WiFi configuration mode");
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
         gpio_config_t power_gpio_config = {
             .pin_bit_mask = (BIT64(POWER_CTRL)),

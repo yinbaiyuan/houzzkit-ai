@@ -7,30 +7,23 @@
 #include <esp_timer.h>
 
 #include <string>
+#include <string_view>
+#include <functional>
 #include <mutex>
 #include <deque>
 #include <memory>
 
 #include "protocol.h"
 #include "ota.h"
-#include "audio_service.h"
 #include "device_state_event.h"
 
 
 #define MAIN_EVENT_SCHEDULE (1 << 0)
-#define MAIN_EVENT_SEND_AUDIO (1 << 1)
-#define MAIN_EVENT_WAKE_WORD_DETECTED (1 << 2)
-#define MAIN_EVENT_VAD_CHANGE (1 << 3)
 #define MAIN_EVENT_ERROR (1 << 4)
 #define MAIN_EVENT_CLOCK_TICK (1 << 6)
 #define MAIN_START_OTA (1 << 7)
-#define MAIN_EVENT_PLAYBACK_END (1 << 8)
 
-enum AecMode {
-    kAecOff,
-    kAecOnDeviceSide,
-    kAecOnServerSide,
-};
+class VoiceController;
 
 class Application {
 public:
@@ -38,39 +31,24 @@ public:
         static Application instance;
         return instance;
     }
-    // 删除拷贝构造函数和赋值运算符
     Application(const Application&) = delete;
     Application& operator=(const Application&) = delete;
 
     void Start();
     void MainEventLoop();
+    bool IsMainEventLoopTask() const { return xTaskGetCurrentTaskHandle() == main_event_loop_task_handle_; }
     DeviceState GetDeviceState() const { return device_state_; }
-    bool IsVoiceDetected() const { return audio_service_.IsVoiceDetected(); }
     void Schedule(std::function<void()> callback);
-    void SetDeviceState(DeviceState state);
+    void EnterWifiConfigMode();
+    void EnterRunning();
+    void ReportError(const std::string& message);
+    void RequestReboot();
     void Alert(const char* status, const char* message, const char* emotion = "", const std::string_view& sound = "");
     void DismissAlert();
-    void AbortSpeaking(AbortReason reason);
-    void ToggleChatState();
-    void StartListening();
-    void StopListening();
-    void Reboot();
-    void WakeWordInvoke(const std::string& wake_word);
-    bool UpgradeFirmware(Ota& ota, const std::string& url = "", const std::string& version = "");
     void StartFirmwareUpgrade(const std::string &url, const std::string &version = "");
     bool CanEnterSleepMode();
     void SendMcpMessage(const std::string& payload);
-    void SetAecMode(AecMode mode);
-    AecMode GetAecMode() const { return aec_mode_; }
-    void PlaySound(const std::string_view& sound);
-    AudioService& GetAudioService() { return audio_service_; }
     void SetServerTimeSynced(bool synced = true);
-
-    void startOtaUpgrade(const std::string& url, const std::string& version);
-    bool otaUpgrade();
-    void playVoiceText(const std::string& text);
-    void executeCommandText(const std::string& command);
-    void askAndExecuteCommandText(const std::string& command);
 
 private:
     Application();
@@ -82,13 +60,9 @@ private:
     EventGroupHandle_t event_group_ = nullptr;
     esp_timer_handle_t clock_timer_handle_ = nullptr;
     volatile DeviceState device_state_ = kDeviceStateUnknown;
-    ListeningMode listening_mode_ = kListeningModeAutoStop;
-    AecMode aec_mode_ = kAecOff;
     std::string last_error_message_;
-    AudioService audio_service_;
 
     bool has_server_time_ = false;
-    bool aborted_ = false;
     int clock_ticks_ = 0;
     TaskHandle_t main_event_loop_task_handle_ = nullptr;
     TaskHandle_t esphome_loop_task_handle_ = nullptr;
@@ -96,12 +70,13 @@ private:
     std::string _ota_url;
     std::string _ota_version;
 
-    void OnWakeWordDetected();
+    void SetDeviceState(DeviceState state);
+    void Reboot();
+    bool UpgradeFirmware(Ota& ota, const std::string& url = "", const std::string& version = "");
+    void startOtaUpgrade(const std::string& url, const std::string& version);
+    bool otaUpgrade();
     void CheckAssetsVersion();
-    void SetListeningMode(ListeningMode mode);
-    AecMode GetEffectiveAecMode() const;
-    bool SupportsRealtimeListening() const;
-    ListeningMode GetPreferredChatListeningMode() const;
+    void PlayFeedbackSound(const std::string_view& sound);
 };
 
 

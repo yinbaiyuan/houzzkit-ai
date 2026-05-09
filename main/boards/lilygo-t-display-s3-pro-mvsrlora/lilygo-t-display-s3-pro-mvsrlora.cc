@@ -139,7 +139,7 @@ private:
                 // On press
                 if (!was_touched) {
                     was_touched = true;
-                    Application::GetInstance().ToggleChatState();
+                    Board::GetInstance().GetVoiceController()->ToggleChatState();
                 }
             }
             // On release
@@ -228,7 +228,7 @@ private:
                 ResetWifiConfiguration();
             }
             power_save_timer_->WakeUp();
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
     }
 
@@ -269,7 +269,7 @@ public:
         }
         WifiBoard::SetPowerSaveMode(enabled);
     }
-    
+
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;

@@ -45,7 +45,7 @@ private:
                 ESP_LOGI("PowerManager", "Charging stopped");
             }
         });
-    
+
     }
 
     void InitializePowerSaveTimer() {
@@ -77,27 +77,27 @@ private:
     }
 
     void InitializeButtons() {
-        
+
         boot_button_.OnClick([this]() {
             power_save_timer_->WakeUp();
             auto& app = Application::GetInstance();
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
 
         // 设置开机按钮的长按事件（直接进入配网模式）
         boot_button_.OnLongPress([this]() {
-            // 唤醒电源保存定时器
+            // 唤醒电源保持定时器
             power_save_timer_->WakeUp();
             // 获取应用程序实例
             auto& app = Application::GetInstance();
-            
+
             // 进入配网模式
-            app.SetDeviceState(kDeviceStateWifiConfiguring);
-            
-            // 重置WiFi配置以确保进入配网模式
+            app.EnterWifiConfigMode();
+
+            // 重置 WiFi 配置以确保进入配网模式
             ResetWifiConfiguration();
         });
 
@@ -160,7 +160,7 @@ private:
         ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel_, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y));
         ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_, true));
 
-        display_ = new ZHENGCHEN_LcdDisplay(panel_io_, panel_, DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, 
+        display_ = new ZHENGCHEN_LcdDisplay(panel_io_, panel_, DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y,
             DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
         display_->SetupHighTempWarningPopup();
     }
@@ -177,14 +177,14 @@ public:
         InitializePowerSaveTimer();
         InitializeSpi();
         InitializeButtons();
-        InitializeSt7789Display();  
+        InitializeSt7789Display();
         InitializeTools();
         GetBacklight()->RestoreBrightness();
     }
 
     // 获取音频编解码器
     virtual AudioCodec* GetAudioCodec() override {
-        // 静态实例化NoAudioCodecSimplex类
+        // 静态实例化 NoAudioCodecSimplex 类
         static NoAudioCodecSimplex audio_codec(AUDIO_INPUT_SAMPLE_RATE, AUDIO_OUTPUT_SAMPLE_RATE,
             AUDIO_I2S_SPK_GPIO_BCLK, AUDIO_I2S_SPK_GPIO_LRCK, AUDIO_I2S_SPK_GPIO_DOUT, AUDIO_I2S_MIC_GPIO_SCK, AUDIO_I2S_MIC_GPIO_WS, AUDIO_I2S_MIC_GPIO_DIN);
         // 返回音频编解码器
@@ -194,7 +194,7 @@ public:
     virtual Display* GetDisplay() override {
         return display_;
     }
-    
+
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;

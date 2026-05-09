@@ -17,9 +17,9 @@
 
 #define TAG "waveshare_c6_amoled_1_43"
 
-static const sh8601_lcd_init_cmd_t lcd_init_cmds[] = 
+static const sh8601_lcd_init_cmd_t lcd_init_cmds[] =
 {
-    {0x11, (uint8_t []){0x00}, 0, 80},   
+    {0x11, (uint8_t []){0x00}, 0, 80},
     {0xC4, (uint8_t []){0x80}, 1, 0},
     {0x53, (uint8_t []){0x20}, 1, 1},
     {0x63, (uint8_t []){0xFF}, 1, 1},
@@ -31,11 +31,11 @@ static const sh8601_lcd_init_cmd_t lcd_init_cmds[] =
 class CustomLcdDisplay : public SpiLcdDisplay {
 public:
     static void MyDrawEventCb(lv_event_t *e) {
-        lv_area_t *area = (lv_area_t *)lv_event_get_param(e);   
+        lv_area_t *area = (lv_area_t *)lv_event_get_param(e);
         uint16_t x1 = area->x1;
-        uint16_t x2 = area->x2; 
+        uint16_t x2 = area->x2;
         uint16_t y1 = area->y1;
-        uint16_t y2 = area->y2; 
+        uint16_t y2 = area->y2;
         // round the start of coordinate down to the nearest 2M number
         area->x1 = (x1 >> 1) << 1;
         area->y1 = (y1 >> 1) << 1;
@@ -101,12 +101,12 @@ private:
     }
 
     void InitializeSpi() {
-        spi_bus_config_t buscfg = {            
-            .data0_io_num = LCD_D0,             
-            .data1_io_num = LCD_D1, 
-            .sclk_io_num = LCD_PCLK,            
-            .data2_io_num = LCD_D2,             
-            .data3_io_num = LCD_D3,             
+        spi_bus_config_t buscfg = {
+            .data0_io_num = LCD_D0,
+            .data1_io_num = LCD_D1,
+            .sclk_io_num = LCD_PCLK,
+            .data2_io_num = LCD_D2,
+            .data3_io_num = LCD_D3,
             .max_transfer_sz = EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES * sizeof(uint16_t),
         };
         ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO));
@@ -114,24 +114,24 @@ private:
 
     void InitializeLcdDisplay() {
         const esp_lcd_panel_io_spi_config_t io_config = {
-            .cs_gpio_num = LCD_CS,          
-            .dc_gpio_num = -1,          
-            .spi_mode = 0,              
+            .cs_gpio_num = LCD_CS,
+            .dc_gpio_num = -1,
+            .spi_mode = 0,
             .pclk_hz = 40 * 1000 * 1000,
-            .trans_queue_depth = 4,     
-            .on_color_trans_done = NULL,  
-            .user_ctx = NULL,         
-            .lcd_cmd_bits = 32,         
-            .lcd_param_bits = 8,        
-            .flags = {                  
-                .quad_mode = true,      
-            },                          
+            .trans_queue_depth = 4,
+            .on_color_trans_done = NULL,
+            .user_ctx = NULL,
+            .lcd_cmd_bits = 32,
+            .lcd_param_bits = 8,
+            .flags = {
+                .quad_mode = true,
+            },
         };
         ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(SPI2_HOST, &io_config, &io_handle));
         sh8601_vendor_config_t vendor_config = {
             .init_cmds = lcd_init_cmds,             // Uncomment these line if use custom initialization commands
             .init_cmds_size = sizeof(lcd_init_cmds) / sizeof(lcd_init_cmds[0]), // sizeof(axs15231b_lcd_init_cmd_t),
-            .flags = 
+            .flags =
             {
                 .use_qspi_interface = 1,
             },
@@ -150,7 +150,7 @@ private:
         EXAMPLE_LCD_H_RES, EXAMPLE_LCD_V_RES, DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
     }
 
-    void InitializeButtons() { //接入锂电池时,可长按PWR开机/关机
+    void InitializeButtons() { //接入锂电池时，可长按 PWR 开机/关机
         boot_button_.OnClick([this]() {
             auto& app = Application::GetInstance();
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
@@ -159,11 +159,11 @@ private:
         });
 
         boot_button_.OnPressDown([this]() {
-            Application::GetInstance().StartListening();
+            Board::GetInstance().GetVoiceController()->StartListening();
         });
 
         boot_button_.OnPressUp([this]() {
-            Application::GetInstance().StopListening();
+            Board::GetInstance().GetVoiceController()->StopListening();
         });
 
         pwr_button_.OnLongPress([this]() {
@@ -185,7 +185,7 @@ private:
     }
 
     void InitializeTouch() {
-        i2c_device_config_t dev_cfg = 
+        i2c_device_config_t dev_cfg =
         {
             .dev_addr_length = I2C_ADDR_BIT_LEN_7,
             .device_address = I2C_Touch_ADDRESS,
@@ -260,17 +260,17 @@ public:
 
     virtual AudioCodec* GetAudioCodec() override {
         static BoxAudioCodec audio_codec(
-            i2c_bus_, 
-            AUDIO_INPUT_SAMPLE_RATE, 
+            i2c_bus_,
+            AUDIO_INPUT_SAMPLE_RATE,
             AUDIO_OUTPUT_SAMPLE_RATE,
-            AUDIO_I2S_GPIO_MCLK, 
-            AUDIO_I2S_GPIO_BCLK, 
-            AUDIO_I2S_GPIO_WS, 
-            AUDIO_I2S_GPIO_DOUT, 
+            AUDIO_I2S_GPIO_MCLK,
+            AUDIO_I2S_GPIO_BCLK,
+            AUDIO_I2S_GPIO_WS,
+            AUDIO_I2S_GPIO_DOUT,
             AUDIO_I2S_GPIO_DIN,
-            AUDIO_CODEC_PA_PIN, 
-            AUDIO_CODEC_ES8311_ADDR, 
-            AUDIO_CODEC_ES7210_ADDR, 
+            AUDIO_CODEC_PA_PIN,
+            AUDIO_CODEC_ES8311_ADDR,
+            AUDIO_CODEC_ES7210_ADDR,
             AUDIO_INPUT_REFERENCE);
         return &audio_codec;
     }

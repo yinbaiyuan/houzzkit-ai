@@ -138,17 +138,17 @@ private:
         boot_button_.OnClick([this]() {
             auto& app = Application::GetInstance();
             if (!press_to_talk_tool_ || !press_to_talk_tool_->IsPressToTalkEnabled()) {
-                app.ToggleChatState();
+                Board::GetInstance().GetVoiceController()->ToggleChatState();
             }
         });
         boot_button_.OnPressDown([this]() {
             if (press_to_talk_tool_ && press_to_talk_tool_->IsPressToTalkEnabled()) {
-                Application::GetInstance().StartListening();
+                Board::GetInstance().GetVoiceController()->StartListening();
             }
         });
         boot_button_.OnPressUp([this]() {
             if (press_to_talk_tool_ && press_to_talk_tool_->IsPressToTalkEnabled()) {
-                Application::GetInstance().StopListening();
+                Board::GetInstance().GetVoiceController()->StopListening();
             }
         });
     }

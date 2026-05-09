@@ -181,7 +181,7 @@ private:
                     !WifiStation::GetInstance().IsConnected()) {
                     board.ResetWifiConfiguration();
                 }
-                app.ToggleChatState();
+                Board::GetInstance().GetVoiceController()->ToggleChatState();
             }
         }
     }
@@ -251,7 +251,7 @@ private:
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
     }
 

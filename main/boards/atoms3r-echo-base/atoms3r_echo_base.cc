@@ -127,7 +127,7 @@ private:
             },
         };
         ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_bus_cfg, &i2c_bus_));
-        
+
         i2c_bus_cfg.i2c_port = I2C_NUM_0;
         i2c_bus_cfg.sda_io_num = GPIO_NUM_45;
         i2c_bus_cfg.scl_io_num = GPIO_NUM_0;
@@ -167,7 +167,7 @@ private:
         if (is_echo_base_connected_) {
             return;
         }
-        
+
         // Pop error page
         InitializeLp5562();
         InitializeSpi();
@@ -177,7 +177,7 @@ private:
         display_->SetStatus(Lang::Strings::ERROR);
         display_->SetEmotion("triangle_exclamation");
         display_->SetChatMessage("system", "Echo Base\nnot connected");
-        
+
         while (1) {
             ESP_LOGE(TAG, "Atomic Echo Base is disconnected");
             vTaskDelay(pdMS_TO_TICKS(1000));
@@ -233,7 +233,7 @@ private:
         io_config.lcd_cmd_bits = 8;
         io_config.lcd_param_bits = 8;
         ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(SPI3_HOST, &io_config, &io_handle));
-    
+
         ESP_LOGI(TAG, "Install GC9A01 panel driver");
         esp_lcd_panel_handle_t panel_handle = NULL;
         gc9a01_vendor_config_t gc9107_vendor_config = {
@@ -249,7 +249,7 @@ private:
         ESP_ERROR_CHECK(esp_lcd_new_panel_gc9a01(io_handle, &panel_config, &panel_handle));
         ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
         ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
-        ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true)); 
+        ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
 
         display_ = new SpiLcdDisplay(io_handle, panel_handle,
                                     DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
@@ -261,7 +261,7 @@ private:
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
     }
 
@@ -280,17 +280,17 @@ public:
 
     virtual AudioCodec* GetAudioCodec() override {
         static Es8311AudioCodec audio_codec(
-            i2c_bus_, 
-            I2C_NUM_1, 
-            AUDIO_INPUT_SAMPLE_RATE, 
+            i2c_bus_,
+            I2C_NUM_1,
+            AUDIO_INPUT_SAMPLE_RATE,
             AUDIO_OUTPUT_SAMPLE_RATE,
-            AUDIO_I2S_GPIO_MCLK, 
-            AUDIO_I2S_GPIO_BCLK, 
-            AUDIO_I2S_GPIO_WS, 
-            AUDIO_I2S_GPIO_DOUT, 
+            AUDIO_I2S_GPIO_MCLK,
+            AUDIO_I2S_GPIO_BCLK,
+            AUDIO_I2S_GPIO_WS,
+            AUDIO_I2S_GPIO_DOUT,
             AUDIO_I2S_GPIO_DIN,
-            AUDIO_CODEC_GPIO_PA, 
-            AUDIO_CODEC_ES8311_ADDR, 
+            AUDIO_CODEC_GPIO_PA,
+            AUDIO_CODEC_ES8311_ADDR,
             false);
         return &audio_codec;
     }

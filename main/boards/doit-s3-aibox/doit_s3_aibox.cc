@@ -39,7 +39,7 @@ private:
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
         boot_button_.OnDoubleClick([this]() {
             click_times++;
@@ -61,11 +61,11 @@ private:
 
         touch_button_.OnPressDown([this]() {
             click_times = 0;
-            Application::GetInstance().StartListening();
+            Board::GetInstance().GetVoiceController()->StartListening();
         });
         touch_button_.OnPressUp([this]() {
             click_times = 0;
-            Application::GetInstance().StopListening();
+            Board::GetInstance().GetVoiceController()->StopListening();
         });
 
         volume_up_button_.OnClick([this]() {

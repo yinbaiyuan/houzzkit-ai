@@ -95,20 +95,20 @@ private:
         codec->SetOutputVolume(volume);
         GetDisplay()->ShowNotification(Lang::Strings::VOLUME + std::to_string(volume));
     }
-    
+
     void TogleState() {
         auto& app = Application::GetInstance();
         if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
             ResetWifiConfiguration();
         }
-        app.ToggleChatState();        
+        Board::GetInstance().GetVoiceController()->ToggleChatState();
     }
 
     void InitializeButtons() {
         /* Initialize ADC  esp-box lite的前三个按钮采用是的adc按钮，而非gpio */
         button_adc_config_t adc_cfg = {};
         adc_cfg.adc_channel = ADC_CHANNEL_0; // ADC1 channel 0 is GPIO1
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)        
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
         const adc_oneshot_unit_init_cfg_t init_config1 = {
             .unit_id = ADC_UNIT_1,
         };
@@ -154,7 +154,7 @@ private:
         esp_lcd_panel_io_handle_t panel_io = nullptr;
         esp_lcd_panel_handle_t panel = nullptr;
 
-        // 液晶屏控制IO初始化
+        // 液晶屏控制 IO 初始化
         ESP_LOGD(TAG, "Install panel IO");
         esp_lcd_panel_io_spi_config_t io_config = {};
         io_config.cs_gpio_num = GPIO_NUM_5;
@@ -180,7 +180,7 @@ private:
         panel_config.bits_per_pixel = 16;
         panel_config.vendor_config = (void *)&vendor_config;
         ESP_ERROR_CHECK(esp_lcd_new_panel_ili9341(panel_io, &panel_config, &panel));
-        
+
         esp_lcd_panel_reset(panel);
         esp_lcd_panel_init(panel);
         esp_lcd_panel_invert_color(panel, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
@@ -211,15 +211,15 @@ public:
 
     virtual AudioCodec* GetAudioCodec() override {
         static BoxAudioCodecLite audio_codec(
-            i2c_bus_, 
-            AUDIO_INPUT_SAMPLE_RATE, 
+            i2c_bus_,
+            AUDIO_INPUT_SAMPLE_RATE,
             AUDIO_OUTPUT_SAMPLE_RATE,
-            AUDIO_I2S_GPIO_MCLK, 
-            AUDIO_I2S_GPIO_BCLK, 
-            AUDIO_I2S_GPIO_WS, 
-            AUDIO_I2S_GPIO_DOUT, 
+            AUDIO_I2S_GPIO_MCLK,
+            AUDIO_I2S_GPIO_BCLK,
+            AUDIO_I2S_GPIO_WS,
+            AUDIO_I2S_GPIO_DOUT,
             AUDIO_I2S_GPIO_DIN,
-            AUDIO_CODEC_PA_PIN, 
+            AUDIO_CODEC_PA_PIN,
             AUDIO_INPUT_REFERENCE);
         return &audio_codec;
     }

@@ -24,23 +24,23 @@ public:
         // ** EFUSE defaults **
         WriteReg(0x22, 0b110); // PWRON > OFFLEVEL as POWEROFF Source enable
         WriteReg(0x27, 0x10);  // hold 4s to power off
-    
+
         WriteReg(0x93, 0x1C); // 配置 aldo2 输出为 3.3V
-    
+
         uint8_t value = ReadReg(0x90); // XPOWERS_AXP2101_LDO_ONOFF_CTRL0
         value = value | 0x02; // set bit 1 (ALDO2)
         WriteReg(0x90, value);  // and power channels now enabled
-    
+
         WriteReg(0x64, 0x03); // CV charger voltage setting to 4.2V
-        
+
         WriteReg(0x61, 0x05); // set Main battery precharge current to 125mA
         WriteReg(0x62, 0x0A); // set Main battery charger current to 400mA ( 0x08-200mA, 0x09-300mA, 0x0A-400mA )
         WriteReg(0x63, 0x15); // set Main battery term charge current to 125mA
-    
+
         WriteReg(0x14, 0x00); // set minimum system voltage to 4.1V (default 4.7V), for poor USB cables
         WriteReg(0x15, 0x00); // set input voltage limit to 3.88v, for poor USB cables
         WriteReg(0x16, 0x05); // set input current limit to 2000mA
-    
+
         WriteReg(0x24, 0x01); // set Vsys for PWROFF threshold to 3.2V (default - 2.6V and kill battery)
         WriteReg(0x50, 0x14); // set TS pin to EXTERNAL input (not temperature)
     }
@@ -164,11 +164,11 @@ private:
         boot_button_.OnPressDown([this]() {
             power_save_timer_->WakeUp();
             auto& app = Application::GetInstance();
-            app.StartListening();
+            Board::GetInstance().GetVoiceController()->StartListening();
         });
         boot_button_.OnPressUp([this]() {
             auto& app = Application::GetInstance();
-            app.StopListening();
+            Board::GetInstance().GetVoiceController()->StopListening();
         });
         boot_button_.OnClick([this]() {
             auto& app = Application::GetInstance();

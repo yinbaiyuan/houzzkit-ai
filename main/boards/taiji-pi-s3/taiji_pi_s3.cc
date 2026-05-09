@@ -486,28 +486,28 @@ private:
         static bool was_touched = false;
         static int64_t touch_start_time = 0;
         const int64_t TOUCH_THRESHOLD_MS = 500;  // 触摸时长阈值，超过500ms视为长按
-        
+
         touchpad->UpdateTouchPoint();
         auto touch_point = touchpad->GetTouchPoint();
-        
+
         // 检测触摸开始
         if (touch_point.num > 0 && !was_touched) {
             was_touched = true;
             touch_start_time = esp_timer_get_time() / 1000; // 转换为毫秒
-        } 
+        }
         // 检测触摸释放
         else if (touch_point.num == 0 && was_touched) {
             was_touched = false;
             int64_t touch_duration = (esp_timer_get_time() / 1000) - touch_start_time;
-            
+
             // 只有短触才触发
             if (touch_duration < TOUCH_THRESHOLD_MS) {
                 auto& app = Application::GetInstance();
-                if (app.GetDeviceState() == kDeviceStateStarting && 
+                if (app.GetDeviceState() == kDeviceStateStarting &&
                     !WifiStation::GetInstance().IsConnected()) {
                     board.ResetWifiConfiguration();
                 }
-                app.ToggleChatState();
+                Board::GetInstance().GetVoiceController()->ToggleChatState();
             }
         }
     }
@@ -515,7 +515,7 @@ private:
     void InitializeCst816sTouchPad() {
         ESP_LOGI(TAG, "Init Cst816s");
         cst816s_ = new Cst816s(i2c_bus_, 0x15);
-        
+
         // 创建定时器，10ms 间隔
         esp_timer_create_args_t timer_args = {
             .callback = touchpad_timer_callback,
@@ -524,7 +524,7 @@ private:
             .name = "touchpad_timer",
             .skip_unhandled_events = true,
         };
-        
+
         ESP_ERROR_CHECK(esp_timer_create(&timer_args, &touchpad_timer_));
         ESP_ERROR_CHECK(esp_timer_start_periodic(touchpad_timer_, 10 * 1000)); // 10ms = 10000us
     }
@@ -562,12 +562,12 @@ private:
         esp_lcd_panel_handle_t panel = nullptr;
 
         ESP_LOGI(TAG, "Install panel IO");
-        
+
         const esp_lcd_panel_io_spi_config_t io_config = ST77916_PANEL_IO_QSPI_CONFIG(QSPI_PIN_NUM_LCD_CS, NULL, NULL);
         ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)QSPI_LCD_HOST, &io_config, &panel_io));
 
         ESP_LOGI(TAG, "Install ST77916 panel driver");
-        
+
         st77916_vendor_config_t vendor_config = {
             .init_cmds = lcd_init_cmds, // 如果使用自定义初始化命令，请取消注释这些行
             .init_cmds_size = sizeof(lcd_init_cmds) / sizeof(st77916_lcd_init_cmd_t),
@@ -639,7 +639,7 @@ public:
             AUDIO_I2S_GPIO_DOUT,
             #ifdef CONFIG_I2S_USE_2SLOT
             I2S_STD_SLOT_BOTH,
-            #endif 
+            #endif
             AUDIO_MIC_WS_PIN,
             AUDIO_MIC_SD_PIN
         );
@@ -650,7 +650,7 @@ public:
     virtual Display* GetDisplay() override {
         return display_;
     }
-    
+
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;

@@ -121,7 +121,7 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
     }
 
     // Update time
-    if (app.GetDeviceState() == kDeviceStateIdle) {
+    if (app.GetDeviceState() == kDeviceStateRunning && Board::GetInstance().GetVoiceController()->IsIdle()) {
         if (last_status_update_time_ + std::chrono::seconds(10) < std::chrono::system_clock::now()) {
             // Set status to clock "HH:MM"
             time_t now = time(NULL);
@@ -166,7 +166,7 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
             if (strcmp(icon, FONT_AWESOME_BATTERY_EMPTY) == 0 && discharging) {
                 if (lv_obj_has_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN)) { // 如果低电量提示框隐藏，则显示
                     lv_obj_remove_flag(low_battery_popup_, LV_OBJ_FLAG_HIDDEN);
-                    app.PlaySound(Lang::Sounds::OGG_LOW_BATTERY);
+                    Board::GetInstance().GetVoiceController()->PlaySound(Lang::Sounds::OGG_LOW_BATTERY);
                 }
             } else {
                 // Hide the low battery popup when the battery is not empty
@@ -177,16 +177,15 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
         }
     }
 
-    // 每 10 秒更新一次网络图标
+    // 姣?10 绉掓洿鏂颁竴娆＄綉缁滃浘鏍?
     static int seconds_counter = 0;
     if (update_all || seconds_counter++ % 10 == 0) {
         // 升级固件时，不读取 4G 网络状态，避免占用 UART 资源
         auto device_state = Application::GetInstance().GetDeviceState();
         static const std::vector<DeviceState> allowed_states = {
-            kDeviceStateIdle,
+            kDeviceStateRunning,
             kDeviceStateStarting,
             kDeviceStateWifiConfiguring,
-            kDeviceStateListening,
             kDeviceStateActivating,
         };
         if (std::find(allowed_states.begin(), allowed_states.end(), device_state) != allowed_states.end()) {

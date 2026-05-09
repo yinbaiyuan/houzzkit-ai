@@ -26,7 +26,7 @@ public:
         duplex_ = true;
         input_sample_rate_ = input_sample_rate;
         output_sample_rate_ = output_sample_rate;
-    
+
         i2s_chan_config_t chan_cfg = {
             .id = I2S_NUM_0,
             .role = I2S_ROLE_MASTER,
@@ -37,7 +37,7 @@ public:
             .intr_priority = 0,
         };
         ESP_ERROR_CHECK(i2s_new_channel(&chan_cfg, &tx_handle_, &rx_handle_));
-    
+
         i2s_std_config_t std_cfg = {
             .clk_cfg = {
                 .sample_rate_hz = (uint32_t)output_sample_rate_,
@@ -134,7 +134,7 @@ private:
     LcdDisplay* display_;
     XL9555_IN* xl9555_in_;
     bool es8311_detected_ = false;
-    
+
     void InitializeI2c() {
         // Initialize I2C peripheral
         i2c_master_bus_config_t i2c_bus_cfg = {
@@ -155,9 +155,9 @@ private:
         xl9555_in_ = new XL9555_IN(i2c_bus_, 0x20);
 
         if (xl9555_in_->GetPingState(0x0020) == 1) {
-            es8311_detected_ = true;    /* 音频设备标志位，SPK_CTRL_IO为高电平时，该标志位置1，且判定为ES8311 */
+            es8311_detected_ = true;    /* 音频设备标志位，SPK_CTRL_IO为高电平时，该标志位置位，且判定为ES8311 */
         } else {
-            es8311_detected_ = false;    /* 音频设备标志位，SPK_CTRL_IO为低电平时，该标志位置0，且判定为NS4168 */
+            es8311_detected_ = false;    /* 音频设备标志位，SPK_CTRL_IO为低电平时，该标志位置位，且判定为NS4168 */
         }
 
         xl9555_in_->xl9555_cfg();
@@ -247,7 +247,7 @@ private:
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
     }
 
@@ -261,21 +261,21 @@ public:
     }
 
     virtual AudioCodec* GetAudioCodec() override {
-        /* 根据探测结果初始化编解码器 */
+        /* 根据探测结果初始化编解码器*/
         if (es8311_detected_) {
-            /* 使用ES8311 驱动 */
+            /* 浣跨敤ES8311 椹卞姩 */
             static Es8311AudioCodec audio_codec(
-                i2c_bus_, 
-                I2C_NUM_0, 
+                i2c_bus_,
+                I2C_NUM_0,
                 AUDIO_INPUT_SAMPLE_RATE,
                 AUDIO_OUTPUT_SAMPLE_RATE,
-                GPIO_NUM_NC, 
-                AUDIO_I2S_GPIO_BCLK, 
+                GPIO_NUM_NC,
+                AUDIO_I2S_GPIO_BCLK,
                 AUDIO_I2S_GPIO_WS,
                 AUDIO_I2S_GPIO_DOUT,
                 AUDIO_I2S_GPIO_DIN,
-                GPIO_NUM_NC, 
-                AUDIO_CODEC_ES8311_ADDR, 
+                GPIO_NUM_NC,
+                AUDIO_CODEC_ES8311_ADDR,
                 false);
                 return &audio_codec;
         } else {
@@ -290,7 +290,7 @@ public:
         }
         return NULL;
     }
-    
+
     virtual Display* GetDisplay() override {
         return display_;
     }

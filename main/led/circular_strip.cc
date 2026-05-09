@@ -197,23 +197,28 @@ void CircularStrip::OnStateChanged() {
             Blink(color, 500);
             break;
         }
-        case kDeviceStateIdle:
-            FadeOut(50);
-            break;
-        case kDeviceStateConnecting: {
-            StripColor color = { low_brightness_, low_brightness_, default_brightness_ };
-            SetAllColor(color);
-            break;
-        }
-        case kDeviceStateListening:
-        case kDeviceStateAudioTesting: {
-            StripColor color = { default_brightness_, low_brightness_, low_brightness_ };
-            SetAllColor(color);
-            break;
-        }
-        case kDeviceStateSpeaking: {
-            StripColor color = { low_brightness_, default_brightness_, low_brightness_ };
-            SetAllColor(color);
+        case kDeviceStateRunning: {
+            switch (Board::GetInstance().GetVoiceController()->GetInteractionState()) {
+                case kVoiceInteractionStateIdle:
+                    FadeOut(50);
+                    break;
+                case kVoiceInteractionStateConnecting: {
+                    StripColor color = { low_brightness_, low_brightness_, default_brightness_ };
+                    SetAllColor(color);
+                    break;
+                }
+                case kVoiceInteractionStateListening:
+                case kVoiceInteractionStateAudioTesting: {
+                    StripColor color = { default_brightness_, low_brightness_, low_brightness_ };
+                    SetAllColor(color);
+                    break;
+                }
+                case kVoiceInteractionStateSpeaking: {
+                    StripColor color = { low_brightness_, default_brightness_, low_brightness_ };
+                    SetAllColor(color);
+                    break;
+                }
+            }
             break;
         }
         case kDeviceStateUpgrading: {

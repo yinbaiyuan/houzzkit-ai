@@ -60,17 +60,17 @@ private:
     esp_lcd_panel_io_handle_t panel_io = NULL;
     esp_lcd_panel_handle_t panel = NULL;
 
-    // 音量映射函数：将内部音量(0-80)映射为显示音量(0-100%)
+    // 音量映射函数：将内部音量(0-80)映射为显示音�?0-100%)
     int MapVolumeForDisplay(int internal_volume) {
         // 确保输入在有效范围内
         if (internal_volume < 0) internal_volume = 0;
         if (internal_volume > 80) internal_volume = 80;
-        
-        // 将0-80映射到0-100
+
+        // �?-80鏄犲皠鍒?-100
         // 公式: 显示音量 = (内部音量 / 80) * 100
         return (internal_volume * 100) / 80;
     }
-    
+
     void InitializePowerManager() {
         power_manager_ = new PowerManager(PWR_ADC_GPIO);
         power_manager_->OnChargingStatusChanged([this](bool is_charging) {
@@ -97,7 +97,7 @@ private:
                 }
                 vTaskDelay(100 / portTICK_PERIOD_MS);
             }
-            
+
             if (long_press_occurred) {
                 ESP_LOGI(TAG, "Long press wakeup");
                 long_press_occurred = false;
@@ -110,8 +110,7 @@ private:
             }
         }
         #endif
-        //一分钟进入浅睡眠，5分钟进入深睡眠关机
-        power_save_timer_ = new PowerSaveTimer(-1, (60*5), -1);
+        //一分钟进入浅睡眠，5分钟进入深睡眠关�?        power_save_timer_ = new PowerSaveTimer(-1, (60*5), -1);
         // power_save_timer_ = new PowerSaveTimer(-1, 6, 10);//test
         power_save_timer_->OnEnterSleepMode([this]() {
             GetDisplay()->SetPowerSaveMode(true);
@@ -171,8 +170,7 @@ private:
             power_save_timer_->WakeUp();
         });
 
-        // 检查电源按钮初始状态
-        ESP_LOGI(TAG, "Power button initial state: %d", GpioManager::GetLevel(PWR_BUTTON_GPIO));
+        // 检查电源按钮初始状�?        ESP_LOGI(TAG, "Power button initial state: %d", GpioManager::GetLevel(PWR_BUTTON_GPIO));
 
         // 高电平有效长按关机逻辑
         pwr_button_.OnPressDown([this]() {
@@ -186,56 +184,37 @@ private:
                 ESP_LOGI(TAG, "开机后电源键未松开,取消关机");
                 return;
             }
-            
-            // 高电平有效防抖确认
+
+            // 楂樼數骞虫湁鏁堥槻鎶栫‘璁?
             for (int i = 0; i < 5; i++) {
                 int level = GpioManager::GetLevel(PWR_BUTTON_GPIO);
                 ESP_LOGD(TAG, "Debounce check %d: GPIO%d level=%d", i+1, PWR_BUTTON_GPIO, level);
-                
+
                 if (level == 0) {
                     ESP_LOGW(TAG, "Power button inactive during confirmation - abort shutdown");
                     return;
                 }
                 vTaskDelay(100 / portTICK_PERIOD_MS);
             }
-            
+
             ESP_LOGI(TAG, "Confirmed power button pressed - initiating shutdown");
             power_manager_->SetPowerState(PowerState::SHUTDOWN); });
 
-        //单击切换状态
-        pwr_button_.OnClick([this]()
-                            {
-            // 获取当前应用实例和状态
-            auto &app = Application::GetInstance();
-            auto current_state = app.GetDeviceState();
+        // Voice button short press
+        pwr_button_.OnClick([this]() {
+            auto voice = Board::GetInstance().GetVoiceController();
+            auto current_state = voice->GetInteractionState();
 
-            ESP_LOGI(TAG, "当前设备状态: %d", current_state);
-            
-            if (current_state == kDeviceStateIdle) {
-                // 如果当前是待命状态，切换到聆听状态
-                ESP_LOGI(TAG, "从待命状态切换到聆听状态");
-                app.ToggleChatState(); // 切换到聆听状态
-            } else if (current_state == kDeviceStateListening) {
-                // 如果当前是聆听状态，切换到待命状态
-                ESP_LOGI(TAG, "从聆听状态切换到待命状态");
-                app.ToggleChatState(); // 切换到待命状态
-            } else if (current_state == kDeviceStateSpeaking) {
-                // 如果当前是说话状态，终止说话并切换到待命状态
-                ESP_LOGI(TAG, "从说话状态切换到待命状态");
-                app.ToggleChatState(); // 终止说话
+            ESP_LOGI(TAG, "Current voice interaction state: %d", current_state);
+
+            if (current_state == kVoiceInteractionStateIdle ||
+                current_state == kVoiceInteractionStateListening ||
+                current_state == kVoiceInteractionStateSpeaking) {
+                voice->ToggleChatState();
             } else {
-                // 其他状态下只唤醒设备
-                ESP_LOGI(TAG, "唤醒设备");
                 power_save_timer_->WakeUp();
-            } });
-
-        // 电源键三击：重置WiFi
-        pwr_button_.OnMultipleClick([this]()
-                                    {
-            ESP_LOGI(TAG, "Power button triple click: 重置WiFi");
-            power_save_timer_->WakeUp();
-            ResetWifiConfiguration(); }, 3);
-
+            }
+        });
         wifi_button.OnPressDown([this]()
                             {
            ESP_LOGI(TAG, "Volume up button pressed");
@@ -244,7 +223,7 @@ private:
             auto codec = GetAudioCodec();
             int current_vol = codec->output_volume(); // 获取实际当前音量
             current_vol = (current_vol + 8 > 80) ? 80 : current_vol + 8;
-            
+
             codec->SetOutputVolume(current_vol);
 
             ESP_LOGI(TAG, "Current volume: %d", current_vol);
@@ -259,7 +238,7 @@ private:
             auto codec = GetAudioCodec();
             int current_vol = codec->output_volume(); // 获取实际当前音量
             current_vol = (current_vol - 8 < 0) ? 0 : current_vol - 8;
-            
+
             codec->SetOutputVolume(current_vol);
 
             ESP_LOGI(TAG, "Current volume: %d", current_vol);
@@ -273,8 +252,7 @@ private:
 
         void InitializeGC9301isplay()
         {
-            // 液晶屏控制IO初始化
-            ESP_LOGI(TAG, "test Install panel IO");
+            // 液晶屏控�?IO 初始�?            ESP_LOGI(TAG, "test Install panel IO");
             spi_bus_config_t buscfg = {};
             buscfg.mosi_io_num = DISPLAY_SPI_MOSI_PIN;
             buscfg.sclk_io_num = DISPLAY_SPI_SCK_PIN;
@@ -337,16 +315,16 @@ public:
     virtual AudioCodec* GetAudioCodec() override {
 
         static Es8311AudioCodec audio_codec(
-            codec_i2c_bus_, 
-            I2C_NUM_0, 
-            AUDIO_INPUT_SAMPLE_RATE, 
+            codec_i2c_bus_,
+            I2C_NUM_0,
+            AUDIO_INPUT_SAMPLE_RATE,
             AUDIO_OUTPUT_SAMPLE_RATE,
-            AUDIO_I2S_GPIO_MCLK, 
-            AUDIO_I2S_GPIO_BCLK, 
-            AUDIO_I2S_GPIO_WS, 
-            AUDIO_I2S_GPIO_DOUT, 
+            AUDIO_I2S_GPIO_MCLK,
+            AUDIO_I2S_GPIO_BCLK,
+            AUDIO_I2S_GPIO_WS,
+            AUDIO_I2S_GPIO_DOUT,
             AUDIO_I2S_GPIO_DIN,
-            AUDIO_CODEC_PA_PIN, 
+            AUDIO_CODEC_PA_PIN,
             AUDIO_CODEC_ES8311_ADDR);
         return &audio_codec;
     }
@@ -354,7 +332,7 @@ public:
     virtual Display* GetDisplay() override {
         return display_;
     }
-    
+
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;

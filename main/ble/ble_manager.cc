@@ -2,6 +2,7 @@
 #include "wifi_station.h"
 #include "wifi_configuration_ap.h"
 #include "board.h"
+#include "audio_codec.h"
 #include "application.h"
 #include "system_info.h"
 #include <esp_app_desc.h>
@@ -115,7 +116,7 @@ void BLEManager::notifySleepModeTimeInterval(uint32_t timeInterval)
 
 bool BLEManager::otaStart(const std::string &firmware_url, const std::string &version)
 {
-    Application::GetInstance().startOtaUpgrade(firmware_url, version);
+    Application::GetInstance().StartFirmwareUpgrade(firmware_url, version);
     return true;
 }
 
@@ -316,20 +317,20 @@ std::string BLEManager::request(const std::string &method, const std::string &ur
 std::string generateRandomString(size_t length) {
     // 定义可用字符集（62个字符）
     const std::string chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    
+
     // 使用当前时间作为随机种子
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::mt19937 generator(seed);  // 梅森旋转算法随机数生成器
     std::uniform_int_distribution<> distribution(0, chars.size() - 1);
-    
+
     std::string result;
     result.reserve(length);  // 预分配内存
-    
+
     for (size_t i = 0; i < length; ++i) {
         // 随机选择一个字符
         result += chars[distribution(generator)];
     }
-    
+
     return result;
 }
 
@@ -402,14 +403,8 @@ void BLEManager::registerProto()
             .pushUint8(0)
             .pushString8(SystemInfo::GetMacAddress())
             .pushString8(BOARD_NAME)
-            .pushString8(esp_app_get_description()->version)
-            .pushUint8(ESPHomeDevice::GetInstance().outputVolume())
-            .pushUint8(ESPHomeDevice::GetInstance().micEnabled() ? 1 : 0)
-            .pushUint8(ESPHomeDevice::GetInstance().continuousDialogue() ? 1 : 0)
-            .pushUint8(ESPHomeDevice::GetInstance().voiceResponseSound() ? 1 : 0)
-            .pushUint8(ESPHomeDevice::GetInstance().idleScreenOff() ? 1 : 0)
-            .pushUint8(ESPHomeDevice::GetInstance().sleepMode() ? 1 : 0)
-            .pushUint32(ESPHomeDevice::GetInstance().sleepModeTimeInterval())
+            .pushString8(esp_app_get_description()->version);
+        BLEDeviceSettings::AppendDeviceSettingsInfo(response)
             .pushString8(WifiStation::GetInstance().GetIpAddress())
             .pushString8(kHouzzkitSmartSpeakerEspHomePort);
         response.protoSend();
@@ -490,7 +485,7 @@ void BLEManager::registerProto()
             cJSON_Delete(mqttInfoRoot);
             return true;
         }
-        
+
         if (cJSON_IsObject(mqttInfoRoot)) {
             Settings settings("mqtt", true);
             cJSON *item = NULL;
@@ -523,7 +518,7 @@ void BLEManager::registerProto()
         }
         if (settings_ws.GetString("ws_token") != wsToken)
         {
-            settings_ws.SetString("ws_token", wsToken);  
+            settings_ws.SetString("ws_token", wsToken);
         }
 
         _protoParse.protoBegin(CMD_CONFIG_WEBSOCKET)
@@ -589,69 +584,10 @@ void BLEManager::registerProto()
 
     _protoCallbackMap[CMD_DEVICE_SETTINGS] = [this](const uint8_t *payload, uint16_t length)
     {
-        bool result = false;
         uint8_t settingType = _protoParse.popUint8();
-        switch (settingType)
-        {
-        case PROPERTY_MIC_ENABLED:
-        {
-            uint8_t micEnable = _protoParse.popUint8();
-            ESPHomeDevice::GetInstance().setMicEnable(micEnable == 1);
-            result = true;
-        }
-        break;
-        case PROPERTY_VOLUME:
-        {
-            uint8_t volume = _protoParse.popUint8();
-            ESPHomeDevice::GetInstance().setOutputVolume(volume);
-            result = true;
-        }
-        break;
-        case PROPERTY_DEVICE_NAME:
-        {
-            std::string deviceId = _protoParse.popString8();
-            std::string deviceName = _protoParse.popString8();
-            result = r_postDeviceName(deviceId, deviceName);
-        }
-        break;
-        case PROPERTY_CONTINUOUS_DIALOGUE:
-        {
-            uint8_t continuousDialogue = _protoParse.popUint8();
-            ESPHomeDevice::GetInstance().setContinuousDialogue(continuousDialogue == 1);
-            result = true;
-        }
-        break;
-        case PROPERTY_VOICE_RESPONSE_SOUND:
-        {
-            uint8_t voiceResponseSound = _protoParse.popUint8();
-            ESPHomeDevice::GetInstance().setVoiceResponseSound(voiceResponseSound == 1);
-            result = true;
-        }
-        break;
-        case PROPERTY_IDLE_SCREEN_OFF:
-        {
-            uint8_t idleScreenOff = _protoParse.popUint8();
-            ESPHomeDevice::GetInstance().setIdleScreenOff(idleScreenOff == 1);
-            result = true;
-        }
-        break;
-        case PROPERTY_SLEEP_MODE:
-        {
-            uint8_t sleepMode = _protoParse.popUint8();
-            ESPHomeDevice::GetInstance().setSleepMode(sleepMode == 1);
-            result = true;
-        }
-        break;
-        case PROPERTY_SLEEP_MODE_TIME_INTERVAL:
-        {
-            uint32_t sleepModeTimeInterval = _protoParse.popUint32();
-            ESPHomeDevice::GetInstance().setSleepModeTimeInterval(sleepModeTimeInterval);
-            result = true;
-        }
-        break;
-        default:        
-            break;
-        }
+        bool result = BLEDeviceSettings::ApplyDeviceSetting(settingType, _protoParse, [this](const std::string& deviceId, const std::string& deviceName) {
+            return r_postDeviceName(deviceId, deviceName);
+        });
         _protoParse.protoBegin(CMD_DEVICE_SETTINGS)
             .pushUint8(result ? 0 : 1)
             .protoSend();

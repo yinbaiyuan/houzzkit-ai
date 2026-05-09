@@ -2,6 +2,7 @@
 
 #include "application.h"
 #include "display.h"
+#include "audio_codec.h"
 #include "assets/lang_config.h"
 
 #include <esp_log.h>
@@ -36,10 +37,11 @@ void Ml307Board::StartNetwork() {
             ESP_LOGI(TAG, "Network is ready");
         } else {
             ESP_LOGE(TAG, "Network is down");
-            auto device_state = application.GetDeviceState();
-            if (device_state == kDeviceStateListening || device_state == kDeviceStateSpeaking) {
+            auto voice = Board::GetInstance().GetVoiceController();
+            if (voice->IsListening() || voice->IsSpeaking()) {
                 application.Schedule([this, &application]() {
-                    application.SetDeviceState(kDeviceStateIdle);
+                    Board::GetInstance().GetVoiceController()->StopListening();
+                    application.EnterRunning();
                 });
             }
         }

@@ -22,15 +22,15 @@
 #define TAG "GenJuTech_s3_1_54TFT"
 
 class SparkBotEs8311AudioCodec : public Es8311AudioCodec {
-    private:    
-    
+    private:
+
     public:
         SparkBotEs8311AudioCodec(void* i2c_master_handle, i2c_port_t i2c_port, int input_sample_rate, int output_sample_rate,
                             gpio_num_t mclk, gpio_num_t bclk, gpio_num_t ws, gpio_num_t dout, gpio_num_t din,
                             gpio_num_t pa_pin, uint8_t es8311_addr, bool use_mclk = true)
             : Es8311AudioCodec(i2c_master_handle, i2c_port, input_sample_rate, output_sample_rate,
                                  mclk,  bclk,  ws,  dout,  din,pa_pin,  es8311_addr,  use_mclk = true) {}
-    
+
         void EnableOutput(bool enable) override {
             if (enable == output_enabled_) {
                 return;
@@ -66,7 +66,7 @@ private:
     }
 
     void InitializePowerSaveTimer() {
-        // 第一个参数不为 -1 时，进入睡眠会关闭音频输入
+        // 第一个参数不为 -1 时，进入睡眠会关闭音频输出
         power_save_timer_ = new PowerSaveTimer(240, 60);
         power_save_timer_->OnEnterSleepMode([this]() {
             GetDisplay()->SetPowerSaveMode(true);
@@ -112,13 +112,13 @@ private:
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 ResetWifiConfiguration();
             }
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
         // boot_button_.OnPressDown([this]() {
-        //     Application::GetInstance().StartListening();
+        //     Board::GetInstance().GetVoiceController()->StartListening();
         // });
         // boot_button_.OnPressUp([this]() {
-        //     Application::GetInstance().StopListening();
+        //     Board::GetInstance().GetVoiceController()->StopListening();
         // });
 
         volume_up_button_.OnClick([this]() {
@@ -171,7 +171,7 @@ private:
 
         esp_lcd_panel_io_handle_t panel_io = nullptr;
         esp_lcd_panel_handle_t panel = nullptr;
-        // 液晶屏控制IO初始化
+        // 液晶屏控制 IO 初始化
         ESP_LOGD(TAG, "Install panel IO");
         esp_lcd_panel_io_spi_config_t io_config = {};
         io_config.cs_gpio_num = DISPLAY_CS;
@@ -230,7 +230,7 @@ public:
     virtual Display *GetDisplay() override {
         return display_;
     }
-    
+
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;

@@ -6,6 +6,7 @@
 #include <functional>
 #include <chrono>
 #include <vector>
+#include <memory>
 
 struct AudioStreamPacket {
     int sample_rate = 0;

@@ -1,6 +1,7 @@
 #include "single_led.h"
 #include "application.h"
-#include <esp_log.h> 
+#include "board.h"
+#include <esp_log.h>
 
 #define TAG "SingleLed"
 
@@ -58,7 +59,7 @@ void SingleLed::TurnOn() {
     if (led_strip_ == nullptr) {
         return;
     }
-    
+
     std::lock_guard<std::mutex> lock(mutex_);
     esp_timer_stop(blink_timer_);
     led_strip_set_pixel(led_strip_, 0, r_, g_, b_);
@@ -94,7 +95,7 @@ void SingleLed::StartBlinkTask(int times, int interval_ms) {
 
     std::lock_guard<std::mutex> lock(mutex_);
     esp_timer_stop(blink_timer_);
-    
+
     blink_counter_ = times * 2;
     blink_interval_ms_ = interval_ms;
     esp_timer_start_periodic(blink_timer_, interval_ms * 1000);
@@ -128,25 +129,29 @@ void SingleLed::OnStateChanged() {
             SetColor(0, 0, DEFAULT_BRIGHTNESS);
             StartContinuousBlink(500);
             break;
-        case kDeviceStateIdle:
-            TurnOff();
-            break;
-        case kDeviceStateConnecting:
-            SetColor(0, 0, DEFAULT_BRIGHTNESS);
-            TurnOn();
-            break;
-        case kDeviceStateListening:
-        case kDeviceStateAudioTesting:
-            if (app.IsVoiceDetected()) {
-                SetColor(HIGH_BRIGHTNESS, 0, 0);
-            } else {
-                SetColor(LOW_BRIGHTNESS, 0, 0);
+        case kDeviceStateRunning:
+            switch (Board::GetInstance().GetVoiceController()->GetInteractionState()) {
+                case kVoiceInteractionStateIdle:
+                    TurnOff();
+                    break;
+                case kVoiceInteractionStateConnecting:
+                    SetColor(0, 0, DEFAULT_BRIGHTNESS);
+                    TurnOn();
+                    break;
+                case kVoiceInteractionStateListening:
+                case kVoiceInteractionStateAudioTesting:
+                    if (Board::GetInstance().GetVoiceController()->IsVoiceDetected()) {
+                        SetColor(HIGH_BRIGHTNESS, 0, 0);
+                    } else {
+                        SetColor(LOW_BRIGHTNESS, 0, 0);
+                    }
+                    TurnOn();
+                    break;
+                case kVoiceInteractionStateSpeaking:
+                    SetColor(0, DEFAULT_BRIGHTNESS, 0);
+                    TurnOn();
+                    break;
             }
-            TurnOn();
-            break;
-        case kDeviceStateSpeaking:
-            SetColor(0, DEFAULT_BRIGHTNESS, 0);
-            TurnOn();
             break;
         case kDeviceStateUpgrading:
             SetColor(0, DEFAULT_BRIGHTNESS, 0);

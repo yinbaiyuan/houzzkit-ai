@@ -92,7 +92,7 @@ private:
     }
 
     void InitializeButtons() {
-        
+
         // 配置 GPIO
         gpio_config_t io_conf = {
             .pin_bit_mask = 1ULL << BUILTIN_LED_GPIO,  // 设置需要配置的 GPIO 引脚
@@ -113,7 +113,7 @@ private:
                 }
             }
             gpio_set_level(BUILTIN_LED_GPIO, 1);
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
 
 
@@ -126,16 +126,16 @@ private:
 
         asr_button_.OnClick([this]() {
             std::string wake_word="你好小智";
-            Application::GetInstance().WakeWordInvoke(wake_word);
+            Board::GetInstance().GetVoiceController()->WakeWordInvoke(wake_word);
         });
 
         touch_button_.OnPressDown([this]() {
             gpio_set_level(BUILTIN_LED_GPIO, 1);
-            Application::GetInstance().StartListening();
+            Board::GetInstance().GetVoiceController()->StartListening();
         });
         touch_button_.OnPressUp([this]() {
             gpio_set_level(BUILTIN_LED_GPIO, 0);
-            Application::GetInstance().StopListening();
+            Board::GetInstance().GetVoiceController()->StopListening();
         });
     }
 
@@ -153,7 +153,7 @@ public:
         InitializeTools();
     }
 
-    virtual AudioCodec* GetAudioCodec() override 
+    virtual AudioCodec* GetAudioCodec() override
     {
 #ifdef AUDIO_I2S_METHOD_SIMPLEX
         static NoAudioCodecSimplex audio_codec(AUDIO_INPUT_SAMPLE_RATE, AUDIO_OUTPUT_SAMPLE_RATE,

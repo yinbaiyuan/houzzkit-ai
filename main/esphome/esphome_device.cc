@@ -18,17 +18,7 @@ esphome::preferences::IntervalSyncer *preferences_intervalsyncer_id;
 esphome::sensor::Sensor *ota_download_progress_sensor_id;
 esphome::text_sensor::TextSensor *device_ip_sensor_id;
 esphome::text_sensor::TextSensor *device_mac_sensor_id;
-
-class WakeupButton : public esphome::button::Button
-{
-public:
-  void press_action() override
-  {
-    Application::GetInstance().ToggleChatState();
-  };
-};
-
-WakeupButton *wakeup_button_id;
+esphome::text_sensor::TextSensor *current_version_sensor_id;
 
 class FirmwareUpgradeButton : public esphome::button::Button
 {
@@ -42,106 +32,6 @@ public:
 
 FirmwareUpgradeButton *firmware_upgrade_button_id;
 
-class MicSwitch : public esphome::switch_::Switch
-{
-public:
-  void write_state(bool state) override
-  {
-    ESPHomeDevice::GetInstance().setMicEnable(state);
-  };
-};
-
-MicSwitch *mic_switch_id;
-
-class VolumeNumber : public esphome::number::Number
-{
-public:
-  void control(float value) override
-  {
-    ESPHomeDevice::GetInstance().setOutputVolume(value);
-  };
-};
-
-VolumeNumber *volume_number_id;
-
-class ContinuousDialogueSwitch : public esphome::switch_::Switch
-{
-public:
-  void write_state(bool state) override
-  {
-    ESPHomeDevice::GetInstance().setContinuousDialogue(state);
-  };
-};
-
-ContinuousDialogueSwitch *continuous_dialogue_switch_id;
-
-class SleepModeSwitch : public esphome::switch_::Switch
-{
-public:
-  void write_state(bool state) override
-  {
-    ESPHomeDevice::GetInstance().setSleepMode(state);
-  };
-};
-
-SleepModeSwitch *sleep_mode_switch_id;
-
-class SleepModeStartTime : public esphome::datetime::TimeEntity
-{
-public:
-  void control(uint8_t hour, uint8_t minute, uint8_t second) override
-  {
-    ESPHomeDevice::GetInstance().setSleepModeStartTime(hour, minute);
-  };
-};
-
-SleepModeStartTime *sleep_mode_start_time_id;
-
-class SleepModeEndTime : public esphome::datetime::TimeEntity
-{
-public:
-  void control(uint8_t hour, uint8_t minute, uint8_t second) override
-  {
-    ESPHomeDevice::GetInstance().setSleepModeEndTime(hour, minute);
-  };
-};
-
-SleepModeEndTime *sleep_mode_end_time_id;
-
-esphome::text_sensor::TextSensor *current_version_sensor_id;
-
-class PlayVoiceText : public esphome::text::Text
-{
-public:
-  void control(const std::string &value) override
-  {
-    ESPHomeDevice::GetInstance().setPlayVoiceText(value);
-  };
-};
-
-PlayVoiceText *play_voice_text_id;
-
-class ExecuteCommandText : public esphome::text::Text
-{
-public:
-  void control(const std::string &value) override
-  {
-    ESPHomeDevice::GetInstance().setExecuteCommandText(value);
-  };
-};
-
-ExecuteCommandText *execute_command_text_id;
-
-class AskAndExecuteCommandText : public esphome::text::Text
-{
-public:
-  void control(const std::string &value) override
-  {
-    ESPHomeDevice::GetInstance().setAskAndExecuteCommandText(value);
-  };
-};
-
-AskAndExecuteCommandText *ask_and_execute_command_text_id;
 
 class OtaUpgradeUrlText : public esphome::text::Text
 {
@@ -185,21 +75,9 @@ void ESPHomeDevice::setupPreferences()
   esphome::esp32::setup_preferences();
 
   Settings settings("esphome", false);
-  _micEnabled = settings.GetBool("micEnabled", _micEnabled);
-  _outputVolume = settings.GetInt("volume", _outputVolume);
-  _continuousDialogue = settings.GetBool("cDialogue", _continuousDialogue);
-  _voiceResponseSound = false;//settings.GetBool("vrSound", _voiceResponseSound);//暂不开放
   _idleScreenOff = settings.GetBool("iSOff", _idleScreenOff);
-  _sleepMode = settings.GetBool("sleepMode", _sleepMode);
-  _sleepModeTimeInterval.setSleepModeTimeInterval(settings.getUint32("sleepModeTI", _sleepModeTimeInterval.getSleepModeTimeInterval()));
 }
 
-void ESPHomeDevice::initProperties()
-{
-  auto &board = Board::GetInstance();
-  auto codec = board.GetAudioCodec();
-  codec->EnableInput(_micEnabled);
-}
 
 void ESPHomeDevice::setup()
 {
@@ -210,7 +88,6 @@ void ESPHomeDevice::setup()
   // 预留组件内存空间
   esphome::App.reserve_components(7);
 
-  initProperties();
 
 #if !CONFIG_IDF_TARGET_ESP32P4
   api_apiserver_id = new esphome::api::APIServer();
@@ -229,12 +106,6 @@ void ESPHomeDevice::setup()
   preferences_intervalsyncer_id->set_component_source("preferences");
   esphome::App.register_component(preferences_intervalsyncer_id);
 
-  // 注册音箱唤醒按钮
-  wakeup_button_id = new WakeupButton();
-  esphome::App.register_button(wakeup_button_id);
-  wakeup_button_id->set_name(Lang::Strings::ESPHOME_ENTITY_BUTTON_NAME_WAKEUP);
-  wakeup_button_id->set_object_id("wakeup_button");
-  wakeup_button_id->set_disabled_by_default(false);
 
   // 注册固件升级按钮
   firmware_upgrade_button_id = new FirmwareUpgradeButton();
@@ -245,59 +116,7 @@ void ESPHomeDevice::setup()
   firmware_upgrade_button_id->set_entity_category(esphome::ENTITY_CATEGORY_CONFIG);
   firmware_upgrade_button_id->set_icon("mdi:update");
 
-  // 注册麦克风开关
-  mic_switch_id = new MicSwitch();
-  esphome::App.register_switch(mic_switch_id);
-  mic_switch_id->set_name(Lang::Strings::ESPHOME_ENTITY_SWITCH_NAME_MIC_ENABLE);
-  mic_switch_id->set_object_id("mic_switch");
-  mic_switch_id->set_disabled_by_default(false);
-  mic_switch_id->publish_state(this->micEnabled());
 
-  // 注册音量调节
-  volume_number_id = new VolumeNumber();
-  esphome::App.register_number(volume_number_id);
-  volume_number_id->set_name(Lang::Strings::ESPHOME_ENTITY_NUMBER_NAME_VOLUME);
-  volume_number_id->set_object_id("volume_number");
-  volume_number_id->set_disabled_by_default(false);
-  volume_number_id->traits.set_min_value(0.0f);
-  volume_number_id->traits.set_max_value(100.0f);
-  volume_number_id->traits.set_step(1.0f);
-  volume_number_id->traits.set_mode(esphome::number::NUMBER_MODE_SLIDER);
-  volume_number_id->publish_state(this->outputVolume());
-
-  // 注册连续对话开关
-  continuous_dialogue_switch_id = new ContinuousDialogueSwitch();
-  esphome::App.register_switch(continuous_dialogue_switch_id);
-  continuous_dialogue_switch_id->set_name(Lang::Strings::ESPHOME_ENTITY_SWITCH_NAME_CONTINUOUS_DIALOGUE);
-  continuous_dialogue_switch_id->set_object_id("continuous_dialogue_switch");
-  continuous_dialogue_switch_id->set_disabled_by_default(false);
-  continuous_dialogue_switch_id->publish_state(this->continuousDialogue());
-
-  // 注册睡眠模式开关
-  sleep_mode_switch_id = new SleepModeSwitch();
-  esphome::App.register_switch(sleep_mode_switch_id);
-  sleep_mode_switch_id->set_name(Lang::Strings::ESPHOME_ENTITY_SWITCH_NAME_SLEEP_MODE);
-  sleep_mode_switch_id->set_object_id("sleep_mode_switch");
-  sleep_mode_switch_id->set_disabled_by_default(false);
-  sleep_mode_switch_id->publish_state(this->sleepMode());
-
-  // 注册睡眠模式开启时间
-  sleep_mode_start_time_id = new SleepModeStartTime();
-  esphome::App.register_time(sleep_mode_start_time_id);
-  sleep_mode_start_time_id->set_name(Lang::Strings::ESPHOME_ENTITY_TIME_NAME_SLEEP_MODE_START);
-  sleep_mode_start_time_id->set_object_id("sleep_mode_start_time");
-  sleep_mode_start_time_id->set_disabled_by_default(false);
-  sleep_mode_start_time_id->publish_state(_sleepModeTimeInterval.startHour, _sleepModeTimeInterval.startMinute, 0);
-
-  // 注册睡眠模式结束时间
-  sleep_mode_end_time_id = new SleepModeEndTime();
-  esphome::App.register_time(sleep_mode_end_time_id);
-  sleep_mode_end_time_id->set_name(Lang::Strings::ESPHOME_ENTITY_TIME_NAME_SLEEP_MODE_END);
-  sleep_mode_end_time_id->set_object_id("sleep_mode_end_time");
-  sleep_mode_end_time_id->set_disabled_by_default(false);
-  sleep_mode_end_time_id->publish_state(_sleepModeTimeInterval.endHour, _sleepModeTimeInterval.endMinute, 0);
-
-  // 注册当前固件版本号
   current_version_sensor_id = new esphome::text_sensor::TextSensor();
   esphome::App.register_text_sensor(current_version_sensor_id);
   current_version_sensor_id->set_name(Lang::Strings::ESPHOME_ENTITY_SENSOR_NAME_CURRENT_VERSION);
@@ -362,36 +181,8 @@ void ESPHomeDevice::setup()
   latest_version_text_id->traits.set_mode(esphome::text::TEXT_MODE_TEXT);
   latest_version_text_id->publish_state(_latestVersion);
 
-  play_voice_text_id = new PlayVoiceText();
-  esphome::App.register_text(play_voice_text_id);
-  play_voice_text_id->set_name(Lang::Strings::ESPHOME_ENTITY_TEXT_NAME_PLAY_VOICE);
-  play_voice_text_id->set_object_id("play_voice_text");
-  play_voice_text_id->set_disabled_by_default(false);
-  play_voice_text_id->traits.set_min_length(0);
-  play_voice_text_id->traits.set_max_length(100);
-  play_voice_text_id->traits.set_mode(esphome::text::TEXT_MODE_TEXT);
-  play_voice_text_id->publish_state("");
 
-  execute_command_text_id = new ExecuteCommandText();
-  esphome::App.register_text(execute_command_text_id);
-  execute_command_text_id->set_name(Lang::Strings::ESPHOME_ENTITY_TEXT_NAME_EXECUTE_COMMAND);
-  execute_command_text_id->set_object_id("execute_command_text");
-  execute_command_text_id->set_disabled_by_default(false);
-  execute_command_text_id->traits.set_min_length(0);
-  execute_command_text_id->traits.set_max_length(100);
-  execute_command_text_id->traits.set_mode(esphome::text::TEXT_MODE_TEXT);
-  execute_command_text_id->publish_state("");
-  
-  ask_and_execute_command_text_id = new AskAndExecuteCommandText();
-  esphome::App.register_text(ask_and_execute_command_text_id);
-  ask_and_execute_command_text_id->set_name(Lang::Strings::ESPHOME_ENTITY_TEXT_NAME_ASK_AND_EXECUTE_COMMAND);
-  ask_and_execute_command_text_id->set_object_id("ask_and_execute_command_text");
-  ask_and_execute_command_text_id->set_disabled_by_default(false);
-  ask_and_execute_command_text_id->traits.set_min_length(0);
-  ask_and_execute_command_text_id->traits.set_max_length(100);
-  ask_and_execute_command_text_id->traits.set_mode(esphome::text::TEXT_MODE_TEXT);
-  ask_and_execute_command_text_id->publish_state("");
-
+  board.RegisterESPHomeEntities(*this);
 
   esphome::App.setup();
 }
@@ -423,91 +214,22 @@ void ESPHomeDevice::setNoisePsk(const std::string noise_psk)
   api_apiserver_id->save_noise_psk(psk, true);
 }
 
-void ESPHomeDevice::setOutputVolume(uint8_t volume)
-{
-  _outputVolume = volume;
-  Settings settings("esphome", true);
-  settings.SetInt("volume", _outputVolume);
-  volume_number_id->publish_state(volume);
-  auto &board = Board::GetInstance();
-  auto codec = board.GetAudioCodec();
-  this->updateIsInSleepModeInterval();
-  if (_sleepMode && _isInSleepModeInterval)
-  {
-    codec->SetOutputVolume(volume > 20 ? 20 : volume);
-  }else
-  {
-    codec->SetOutputVolume(volume);
-  }
-  BLEManager::GetInstance().notifyVolume(volume);
-  ESP_LOGI(TAG, "Set output volume to %d", volume);
-}
-
-void ESPHomeDevice::setMicEnable(bool enabled)
-{
-  _micEnabled = enabled;
-  Settings settings("esphome", true);
-  settings.SetBool("micEnabled", _micEnabled);
-  mic_switch_id->publish_state(_micEnabled);
-  BLEManager::GetInstance().notifyMicSwitchState(_micEnabled);
-  ESP_LOGI(TAG, "Set mic enabled to %d", _micEnabled);
-
-  // auto &audioService = Application::GetInstance().GetAudioService();
-  //     ESP_LOGI(TAG, "micSwitch state: %s", state ? "ON" : "OFF");
-  //     audioService.EnableWakeWordDetection(state);
-}
-
-void ESPHomeDevice::setContinuousDialogue(bool enabled)
-{
-  _continuousDialogue = enabled;
-  Settings settings("esphome", true);
-  settings.SetBool("cDialogue", _continuousDialogue);
-  if (continuous_dialogue_switch_id != nullptr)
-  {
-    continuous_dialogue_switch_id->publish_state(_continuousDialogue);
-  }
-  BLEManager::GetInstance().notifyContinuousDialogue(_continuousDialogue);
-}
-
-void ESPHomeDevice::setVoiceResponseSound(bool enabled)
-{
-  _voiceResponseSound = enabled;
-  Settings settings("esphome", true);
-  settings.SetBool("vrSound", _voiceResponseSound);
-  BLEManager::GetInstance().notifyVoiceResponseSound(_voiceResponseSound);
-}
-
 void ESPHomeDevice::setIdleScreenOff(bool enabled)
 {
   _idleScreenOff = enabled;
   Settings settings("esphome", true);
   settings.SetBool("iSOff", _idleScreenOff);
   BLEManager::GetInstance().notifyIdleScreenOff(_idleScreenOff);
-  if (Application::GetInstance().GetDeviceState() == DeviceState::kDeviceStateIdle)
+  if (Application::GetInstance().GetDeviceState() == kDeviceStateRunning)
   {
       auto &board = Board::GetInstance();
       auto display = board.GetDisplay();
-      display->setDisplayOnOff(!enabled);
+      if (display != nullptr) {
+          display->setDisplayOnOff(!enabled);
+      }
   }
 }
 
-void ESPHomeDevice::setPlayVoiceText(const std::string &value)
-{
-  Application::GetInstance().playVoiceText(value);
-  play_voice_text_id->publish_state("");
-}
-
-void ESPHomeDevice::setExecuteCommandText(const std::string &value)
-{
-  Application::GetInstance().executeCommandText(value);
-  execute_command_text_id->publish_state("");
-}
-
-void ESPHomeDevice::setAskAndExecuteCommandText(const std::string &value)
-{
-  Application::GetInstance().askAndExecuteCommandText(value);
-  ask_and_execute_command_text_id->publish_state("");
-}
 
 void ESPHomeDevice::setOtaUpgradeUrl(const std::string &value)
 {
@@ -527,47 +249,6 @@ void ESPHomeDevice::setLatestVersion(const std::string &value)
   }
 }
 
-void ESPHomeDevice::setSleepMode(bool enabled)
-{
-  _sleepMode = enabled;
-  Settings settings("esphome", true);
-  settings.SetBool("sleepMode", _sleepMode);
-  if (sleep_mode_switch_id != nullptr)
-  {
-    sleep_mode_switch_id->publish_state(_sleepMode);
-  }
-  BLEManager::GetInstance().notifySleepMode(_sleepMode);
-  updateOutputVolume();
-}
-
-void ESPHomeDevice::setSleepModeTimeInterval(uint32_t timeInterval)
-{
-  _sleepModeTimeInterval.setSleepModeTimeInterval(timeInterval);
-  Settings settings("esphome", true);
-  settings.setUint32("sleepModeTI", _sleepModeTimeInterval.getSleepModeTimeInterval());
-  if (sleep_mode_start_time_id != nullptr)
-  {
-    sleep_mode_start_time_id->publish_state(_sleepModeTimeInterval.startHour, _sleepModeTimeInterval.startMinute, 0);
-  }
-  if (sleep_mode_end_time_id != nullptr)
-  {
-    sleep_mode_end_time_id->publish_state(_sleepModeTimeInterval.endHour, _sleepModeTimeInterval.endMinute, 0);
-  }
-  BLEManager::GetInstance().notifySleepModeTimeInterval(_sleepModeTimeInterval.getSleepModeTimeInterval());
-  updateOutputVolume();
-}
-
-void ESPHomeDevice::setSleepModeStartTime(uint8_t hour, uint8_t minute)
-{
-  _sleepModeTimeInterval.setSleepModeTimeInterval(hour, minute, _sleepModeTimeInterval.endHour, _sleepModeTimeInterval.endMinute);
-  setSleepModeTimeInterval(_sleepModeTimeInterval.getSleepModeTimeInterval());
-}
-
-void ESPHomeDevice::setSleepModeEndTime(uint8_t hour, uint8_t minute)
-{
-  _sleepModeTimeInterval.setSleepModeTimeInterval(_sleepModeTimeInterval.startHour, _sleepModeTimeInterval.startMinute, hour, minute);
-  setSleepModeTimeInterval(_sleepModeTimeInterval.getSleepModeTimeInterval());
-}
 
 void ESPHomeDevice::setOtaDownloadProgress(uint8_t progress)
 {
@@ -578,41 +259,6 @@ void ESPHomeDevice::setOtaDownloadProgress(uint8_t progress)
   }
 }
 
-void ESPHomeDevice::updateIsInSleepModeInterval()
-{
-  if (!_sleepMode)
-  {
-    _isInSleepModeInterval = false;
-  }else
-  {
-    time_t now = time(NULL);
-    struct tm* tm = localtime(&now);
-    if (tm->tm_year < 2025 - 1900) {
-      _isInSleepModeInterval = false;
-    }else
-    {
-      uint32_t startTime = _sleepModeTimeInterval.startTime();
-      uint32_t endTime = _sleepModeTimeInterval.endTime();
-      uint32_t current = tm->tm_hour * 60 + tm->tm_min;
-      if (endTime >= 24 * 60 && current < startTime)
-      {
-        current += 24 * 60;
-      }
-      if (current >= startTime && current <= endTime)
-      {
-        _isInSleepModeInterval = true;
-      }else
-      {
-        _isInSleepModeInterval = false;
-      }
-    }
-  }
-}
-
-void ESPHomeDevice::updateOutputVolume()
-{
-  this->setOutputVolume(this->outputVolume());
-}
 
 void ESPHomeDevice::updateDeviceIp()
 {

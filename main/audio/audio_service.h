@@ -221,6 +221,7 @@ private:
     uint32_t downlink_consecutive_plc_count_ = 0;
 
     bool wake_word_initialized_ = false;
+    bool wake_word_detection_requested_ = false;
     bool audio_processor_initialized_ = false;
     bool voice_detected_ = false;
     bool service_stopped_ = true;

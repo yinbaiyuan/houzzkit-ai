@@ -99,7 +99,7 @@ private:
             GetDisplay()->SetPowerSaveMode(false);
             GetBacklight()->RestoreBrightness();
         });
-         
+
         power_save_timer_->SetEnabled(true);
     }
 
@@ -139,7 +139,7 @@ private:
         } else if (GetNetworkType() == NetworkType::ML307) {
             Enable4GModule();
         }
-        
+
     }
 
     void InitializeButtons() {
@@ -153,12 +153,12 @@ private:
                     Disable4GModule();
                 }
             } else if(GetNetworkType() == NetworkType::ML307) {
-                
+
                 Enable4GModule();
                 // stop WiFi
                 esp_wifi_stop();
             }
-        });        
+        });
         main_button_.OnDoubleClick([this]() {
             auto& app = Application::GetInstance();
             if (app.GetDeviceState() == kDeviceStateStarting || app.GetDeviceState() == kDeviceStateWifiConfiguring) {
@@ -167,14 +167,14 @@ private:
         });
         main_button_.OnPressDown([this]() {
             power_save_timer_->WakeUp();
-            Application::GetInstance().StartListening();
+            Board::GetInstance().GetVoiceController()->StartListening();
         });
         main_button_.OnPressUp([this]() {
-            Application::GetInstance().StopListening();
+            Board::GetInstance().GetVoiceController()->StopListening();
         });
 
         left_button_.OnClick([this]() {
-            power_save_timer_->WakeUp();            
+            power_save_timer_->WakeUp();
             auto codec = GetAudioCodec();
             auto volume = codec->output_volume() - 10;
             if (volume < 0) {
@@ -229,7 +229,7 @@ private:
     void InitializeGc9107Display(){
         // esp_lcd_panel_io_handle_t panel_io = nullptr;
         // esp_lcd_panel_handle_t panel = nullptr;
-        // 液晶屏控制IO初始化
+        // 液晶屏控制 IO 初始化
         ESP_LOGD(TAG, "Install panel IO");
         esp_lcd_panel_io_spi_config_t io_config = {};
         io_config.cs_gpio_num = DISPLAY_CS_PIN;
@@ -242,7 +242,7 @@ private:
         ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi(SPI3_HOST, &io_config, &panel_io));
 
         // 初始化液晶屏驱动芯片GC9107
-        ESP_LOGD(TAG, "Install LCD driver");        
+        ESP_LOGD(TAG, "Install LCD driver");
         gc9a01_vendor_config_t gc9107_vendor_config = {
             .init_cmds = gc9107_lcd_init_cmds,
             .init_cmds_size = sizeof(gc9107_lcd_init_cmds) / sizeof(gc9a01_lcd_init_cmd_t),
@@ -269,7 +269,7 @@ private:
 public:
     magiclick_2p5() : DualNetworkBoard(ML307_TX_PIN, ML307_RX_PIN, GPIO_NUM_NC, 0),
         main_button_(MAIN_BUTTON_GPIO),
-        left_button_(LEFT_BUTTON_GPIO), 
+        left_button_(LEFT_BUTTON_GPIO),
         right_button_(RIGHT_BUTTON_GPIO) {
         InitializeLedPower();
         CheckNetType();
@@ -297,7 +297,7 @@ public:
     virtual Display* GetDisplay() override {
         return display_;
     }
-    
+
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;

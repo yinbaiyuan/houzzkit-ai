@@ -74,6 +74,12 @@ choice
     #     bool "Romanian"
 endchoice
 
+config USE_VOICE_DIALOGUE
+    bool "Enable voice dialogue"
+    default y
+    help
+        Enable full voice dialogue capability. ESPHome base device features are always enabled.
+
 choice BOARD_TYPE
     prompt "Board Type"
     default BOARD_TYPE_BREAD_COMPACT_WIFI
@@ -87,7 +93,7 @@ choice BOARD_TYPE
         depends on IDF_TARGET_ESP32S3
     config BOARD_TYPE_BREAD_COMPACT_WIFI_CAM
         bool "Bread Compact WiFi + LCD + Camera (面包板)"
-        depends on IDF_TARGET_ESP32S3     
+        depends on IDF_TARGET_ESP32S3
     # config BOARD_TYPE_BREAD_COMPACT_ML307
     #     bool "Bread Compact ML307/EC801E (面包板 4G)"
     #     depends on IDF_TARGET_ESP32S3
@@ -526,6 +532,7 @@ choice DISPLAY_STYLE
 endchoice
 
 choice WAKE_WORD_TYPE
+    depends on USE_VOICE_DIALOGUE
     prompt "Wake Word Implementation Type"
     default USE_AFE_WAKE_WORD if (IDF_TARGET_ESP32S3 || IDF_TARGET_ESP32P4) && SPIRAM
     default WAKE_WORD_DISABLED
@@ -589,14 +596,14 @@ config SEND_WAKE_WORD_DATA
 config USE_AUDIO_PROCESSOR
     bool "Enable Audio Noise Reduction"
     default y
-    depends on (IDF_TARGET_ESP32S3 || IDF_TARGET_ESP32P4) && SPIRAM
+    depends on USE_VOICE_DIALOGUE && (IDF_TARGET_ESP32S3 || IDF_TARGET_ESP32P4) && SPIRAM
     help
         Requires ESP32 S3 and PSRAM
 
 config USE_DEVICE_AEC
     bool "Enable Device-Side AEC"
     default n
-        depends on USE_AUDIO_PROCESSOR && (BOARD_TYPE_ESP_BOX_3 || BOARD_TYPE_ESP_BOX || BOARD_TYPE_ESP_BOX_LITE \
+        depends on USE_VOICE_DIALOGUE && USE_AUDIO_PROCESSOR && (BOARD_TYPE_ESP_BOX_3 || BOARD_TYPE_ESP_BOX || BOARD_TYPE_ESP_BOX_LITE \
         || BOARD_TYPE_LICHUANG_DEV || BOARD_TYPE_ESP32S3_KORVO2_V3 || BOARD_TYPE_ESP32S3_Touch_AMOLED_1_75 \
         || BOARD_TYPE_ESP32S3_Touch_AMOLED_2_06 || BOARD_TYPE_ESP32S3_Touch_LCD_4B || BOARD_TYPE_ESP32P4_WIFI6_Touch_LCD_4B || BOARD_TYPE_ESP32P4_WIFI6_Touch_LCD_7B \
         || BOARD_TYPE_ESP32P4_WIFI6_Touch_LCD_XC || BOARD_TYPE_ESP_S3_LCD_EV_Board_2 || BOARD_TYPE_YUNLIAO_S3 \
@@ -609,13 +616,14 @@ config USE_DEVICE_AEC
 config USE_SERVER_AEC
     bool "Enable Server-Side AEC (Unstable)"
     default n
-    depends on USE_AUDIO_PROCESSOR
+    depends on USE_VOICE_DIALOGUE && USE_AUDIO_PROCESSOR
     help
         To work perperly, server-side AEC requires server support
 
 config USE_AUDIO_DEBUGGER
     bool "Enable Audio Debugger"
     default n
+    depends on USE_VOICE_DIALOGUE
     help
         Enable audio debugger, send audio data through UDP to the host machine
 
@@ -629,6 +637,7 @@ config AUDIO_DEBUG_UDP_SERVER
 config USE_ACOUSTIC_WIFI_PROVISIONING
     bool "Enable Acoustic WiFi Provisioning"
     default n
+    depends on USE_VOICE_DIALOGUE
     help
         Enable acoustic WiFi provisioning, use audio signal to transmit WiFi configuration data
 

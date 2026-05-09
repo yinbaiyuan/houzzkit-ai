@@ -72,7 +72,7 @@ private:
         boot_button_.OnClick([this]() {
             power_save_timer_->WakeUp();
             auto& app = Application::GetInstance();
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
         boot_button_.OnDoubleClick([this]() {
             ESP_LOGI(TAG, "Button OnDoubleClick");
@@ -80,25 +80,25 @@ private:
             if (app.GetDeviceState() == kDeviceStateStarting || app.GetDeviceState() == kDeviceStateWifiConfiguring) {
                 SwitchNetworkType();
             }
-        });  
+        });
         boot_button_.OnMultipleClick([this]() {
             ESP_LOGI(TAG, "Button OnThreeClick");
             if (GetNetworkType() == NetworkType::WIFI) {
                 auto& wifi_board = static_cast<WifiBoard&>(GetCurrentBoard());
                 wifi_board.ResetWifiConfiguration();
             }
-        },3);  
+        },3);
         boot_button_.OnLongPress([this]() {
             ESP_LOGI(TAG, "Button LongPress to Sleep");
             display_->SetStatus(Lang::Strings::PLEASE_WAIT);
             vTaskDelay(pdMS_TO_TICKS(2000));
             power_manager_->Sleep();
-        });    
+        });
     }
     void InitializeSt7789Display() {
         esp_lcd_panel_io_handle_t panel_io = nullptr;
         esp_lcd_panel_handle_t panel = nullptr;
-        // 液晶屏控制IO初始化
+        // 液晶屏控制 IO 初始化
         ESP_LOGD(TAG, "Install panel IO");
         esp_lcd_panel_io_spi_config_t io_config = {};
         io_config.cs_gpio_num = DISPLAY_SPI_PIN_LCD_CS;
@@ -117,7 +117,7 @@ private:
         panel_config.rgb_ele_order = DISPLAY_RGB_ORDER_COLOR;
         panel_config.bits_per_pixel = 16;
         ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(panel_io, &panel_config, &panel));
-        
+
         esp_lcd_panel_reset(panel);
         esp_lcd_panel_init(panel);
         esp_lcd_panel_invert_color(panel, DISPLAY_INVERT_COLOR);
@@ -169,16 +169,16 @@ public:
 
     virtual AudioCodec* GetAudioCodec() override {
         static Es8388AudioCodec audio_codec(
-            codec_i2c_bus_, 
-            I2C_NUM_0, 
-            AUDIO_INPUT_SAMPLE_RATE, 
+            codec_i2c_bus_,
+            I2C_NUM_0,
+            AUDIO_INPUT_SAMPLE_RATE,
             AUDIO_OUTPUT_SAMPLE_RATE,
-            AUDIO_I2S_GPIO_MCLK, 
-            AUDIO_I2S_GPIO_BCLK, 
-            AUDIO_I2S_GPIO_WS, 
-            AUDIO_I2S_GPIO_DOUT, 
+            AUDIO_I2S_GPIO_MCLK,
+            AUDIO_I2S_GPIO_BCLK,
+            AUDIO_I2S_GPIO_WS,
+            AUDIO_I2S_GPIO_DOUT,
             AUDIO_I2S_GPIO_DIN,
-            AUDIO_CODEC_PA_PIN, 
+            AUDIO_CODEC_PA_PIN,
             AUDIO_CODEC_ES8388_ADDR,
             AUDIO_INPUT_REFERENCE
         );
@@ -188,7 +188,7 @@ public:
     virtual Display* GetDisplay() override {
         return display_;
     }
-    
+
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;

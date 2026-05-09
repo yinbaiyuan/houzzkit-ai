@@ -1,6 +1,7 @@
 #include "wifi_board.h"
 
 #include "display.h"
+#include "audio_codec.h"
 #include "application.h"
 #include "system_info.h"
 #include "settings.h"
@@ -43,7 +44,7 @@ std::string WifiBoard::GetBoardType() {
 
 void WifiBoard::EnterWifiConfigMode() {
     auto& application = Application::GetInstance();
-    application.SetDeviceState(kDeviceStateWifiConfiguring);
+    application.EnterWifiConfigMode();
 
     auto& wifi_ap = WifiConfigurationAp::GetInstance();
     wifi_ap.Start();

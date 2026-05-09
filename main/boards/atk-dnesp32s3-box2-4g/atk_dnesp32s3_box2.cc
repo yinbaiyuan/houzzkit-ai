@@ -105,7 +105,7 @@ private:
         });
         power_save_timer_->OnShutdownRequest([this]() {
             if (power_status_ == kDeviceBatterySupply) {
-                GetBacklight()->SetBrightness(0);   
+                GetBacklight()->SetBrightness(0);
                 esp_timer_stop(power_manager_->timer_handle_);
                 esp_io_expander_set_dir( io_exp_handle, XIO_CHG_CTRL, IO_EXPANDER_OUTPUT);
                 esp_io_expander_set_level(io_exp_handle, XIO_CHG_CTRL, 0);
@@ -259,10 +259,10 @@ private:
                 if (app.GetDeviceState() == kDeviceStateStarting || app.GetDeviceState() == kDeviceStateWifiConfiguring) {
                 }
                 else {
-                    app.ToggleChatState();
+                    Board::GetInstance().GetVoiceController()->ToggleChatState();
                 }
             } else {
-                app.ToggleChatState();
+                Board::GetInstance().GetVoiceController()->ToggleChatState();
             }
         }, this);
 
@@ -367,9 +367,9 @@ private:
                 .dc_data_level = 1,
             },
             .flags = {
-                .cs_active_high = 0,        
-                .pclk_active_neg = 0,       
-                .pclk_idle_low = 0,           
+                .cs_active_high = 0,
+                .pclk_active_neg = 0,
+                .pclk_idle_low = 0,
             },
         };
         ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(i80_bus, &io_config, &panel_io));
@@ -427,16 +427,16 @@ public:
 
     virtual AudioCodec* GetAudioCodec() override {
         static Es8389AudioCodec audio_codec(
-            i2c_bus_, 
-            I2C_NUM_0, 
-            AUDIO_INPUT_SAMPLE_RATE, 
+            i2c_bus_,
+            I2C_NUM_0,
+            AUDIO_INPUT_SAMPLE_RATE,
             AUDIO_OUTPUT_SAMPLE_RATE,
-            AUDIO_I2S_GPIO_MCLK, 
-            AUDIO_I2S_GPIO_BCLK, 
-            AUDIO_I2S_GPIO_WS, 
-            AUDIO_I2S_GPIO_DOUT, 
+            AUDIO_I2S_GPIO_MCLK,
+            AUDIO_I2S_GPIO_BCLK,
+            AUDIO_I2S_GPIO_WS,
+            AUDIO_I2S_GPIO_DOUT,
             AUDIO_I2S_GPIO_DIN,
-            GPIO_NUM_NC, 
+            GPIO_NUM_NC,
             AUDIO_CODEC_ES8389_ADDR
         );
         return &audio_codec;

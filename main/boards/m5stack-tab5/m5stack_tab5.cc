@@ -126,20 +126,20 @@ private:
             if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
                 // ResetWifiConfiguration();
             }
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
     }
 
     void InitializeGt911TouchPad() {
         ESP_LOGI(TAG, "Init GT911");
- 
+
         /* Initialize Touch Panel */
         ESP_LOGI(TAG, "Initialize touch IO (I2C)");
         const esp_lcd_touch_config_t tp_cfg = {
             .x_max = DISPLAY_WIDTH,
             .y_max = DISPLAY_HEIGHT,
-            .rst_gpio_num = GPIO_NUM_NC, 
-            .int_gpio_num = TOUCH_INT_GPIO, 
+            .rst_gpio_num = GPIO_NUM_NC,
+            .int_gpio_num = TOUCH_INT_GPIO,
             .levels = {
                 .reset = 0,
                 .interrupt = 0,
@@ -152,13 +152,13 @@ private:
         };
         esp_lcd_panel_io_handle_t tp_io_handle = NULL;
         esp_lcd_panel_io_i2c_config_t tp_io_config = ESP_LCD_TOUCH_IO_I2C_GT911_CONFIG();
-        tp_io_config.dev_addr = ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP; // 更改 GT911 地址 
+        tp_io_config.dev_addr = ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS_BACKUP; // 更改 GT911 地址
         tp_io_config.scl_speed_hz = 100000;
         esp_lcd_new_panel_io_i2c(i2c_bus_, &tp_io_config, &tp_io_handle);
         esp_lcd_touch_new_i2c_gt911(tp_io_handle, &tp_cfg, &touch_);
 
         // 检测不到触摸？待更换设备测试
-        // /* read data test */ 
+        // /* read data test */
         // for (uint8_t i = 0; i < 50; i++) {
         //     esp_lcd_touch_read_data(touch_);
         //     if (touch_->data.points > 0) {
@@ -270,17 +270,17 @@ public:
     }
 
     virtual AudioCodec* GetAudioCodec() override {
-        static Tab5AudioCodec audio_codec(i2c_bus_, 
-                                        AUDIO_INPUT_SAMPLE_RATE, 
+        static Tab5AudioCodec audio_codec(i2c_bus_,
+                                        AUDIO_INPUT_SAMPLE_RATE,
                                         AUDIO_OUTPUT_SAMPLE_RATE,
-                                        AUDIO_I2S_GPIO_MCLK, 
-                                        AUDIO_I2S_GPIO_BCLK, 
+                                        AUDIO_I2S_GPIO_MCLK,
+                                        AUDIO_I2S_GPIO_BCLK,
                                         AUDIO_I2S_GPIO_WS,
-                                        AUDIO_I2S_GPIO_DOUT, 
-                                        AUDIO_I2S_GPIO_DIN, 
+                                        AUDIO_I2S_GPIO_DOUT,
+                                        AUDIO_I2S_GPIO_DIN,
                                         AUDIO_CODEC_PA_PIN,
-                                        AUDIO_CODEC_ES8388_ADDR, 
-                                        AUDIO_CODEC_ES7210_ADDR, 
+                                        AUDIO_CODEC_ES8388_ADDR,
+                                        AUDIO_CODEC_ES7210_ADDR,
                                         AUDIO_INPUT_REFERENCE);
         return &audio_codec;
     }

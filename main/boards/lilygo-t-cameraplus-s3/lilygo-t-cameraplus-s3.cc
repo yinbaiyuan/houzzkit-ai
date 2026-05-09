@@ -141,7 +141,7 @@ private:
                 // On press
                 if (!was_touched) {
                     was_touched = true;
-                    Application::GetInstance().ToggleChatState();
+                    Board::GetInstance().GetVoiceController()->ToggleChatState();
                 }
             }
             // On release
@@ -178,7 +178,7 @@ private:
     void InitializeSt7789Display() {
         esp_lcd_panel_io_handle_t panel_io = nullptr;
         esp_lcd_panel_handle_t panel = nullptr;
-        // 液晶屏控制IO初始化
+        // 液晶屏控制 IO 初始化
         ESP_LOGD(TAG, "Install panel IO");
         esp_lcd_panel_io_spi_config_t io_config = {};
         io_config.cs_gpio_num = LCD_CS;
@@ -214,7 +214,7 @@ private:
                 ResetWifiConfiguration();
             }
             power_save_timer_->WakeUp();
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
         key1_button_.OnClick([this]() {
             if (camera_) {
@@ -240,13 +240,13 @@ private:
         config.pin_vsync = VSYNC_GPIO_NUM;
         config.pin_href = HREF_GPIO_NUM;
 #ifdef CONFIG_BOARD_TYPE_LILYGO_T_CAMERAPLUS_S3_V1_0_V1_1
-        config.pin_sccb_sda = -1;   // 这里如果写-1 表示使用已经初始化的I2C接口
+        config.pin_sccb_sda = -1;   // 这里如果写 -1 表示使用已经初始化的 I2C 接口
         config.pin_sccb_scl = SIOC_GPIO_NUM;
-        config.sccb_i2c_port = 0;   //  这里如果写0 默认使用I2C0
+        config.sccb_i2c_port = 0;   //  这里如果写 0 默认使用 I2C0
 #elif defined CONFIG_BOARD_TYPE_LILYGO_T_CAMERAPLUS_S3_V1_2
-        config.pin_sccb_sda = SIOD_GPIO_NUM;  
+        config.pin_sccb_sda = SIOD_GPIO_NUM;
         config.pin_sccb_scl = SIOC_GPIO_NUM;
-        config.sccb_i2c_port = 1; 
+        config.sccb_i2c_port = 1;
 #endif
         config.pin_pwdn = PWDN_GPIO_NUM;
         config.pin_reset = RESET_GPIO_NUM;
@@ -320,7 +320,7 @@ public:
         }
         WifiBoard::SetPowerSaveMode(enabled);
     }
-    
+
     virtual Backlight* GetBacklight() override {
         static PwmBacklight backlight(DISPLAY_BACKLIGHT_PIN, DISPLAY_BACKLIGHT_OUTPUT_INVERT);
         return &backlight;

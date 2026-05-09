@@ -2,6 +2,7 @@
 #include "board.h"
 #include "application.h"
 #include "settings.h"
+#include "audio_service.h"
 
 #include <esp_log.h>
 #include <esp_heap_caps.h>
@@ -44,7 +45,7 @@ MqttProtocol::MqttProtocol() {
         .callback = [](void* arg) {
             MqttProtocol* protocol = (MqttProtocol*)arg;
             auto& app = Application::GetInstance();
-            if (app.GetDeviceState() != kDeviceStateIdle) {
+            if (app.GetDeviceState() != kDeviceStateRunning || !Board::GetInstance().GetVoiceController()->IsIdle()) {
                 ESP_LOGI(TAG, "Skip MQTT reconnect because device is busy, retry later");
                 protocol->ScheduleReconnect();
                 return;
@@ -620,7 +621,7 @@ bool MqttProtocol::OpenAudioChannel() {
         return false;
     }
 
-    // 等待服务器响应
+    // 绛夊緟鏈嶅姟鍣ㄥ搷搴?
     EventBits_t bits = xEventGroupWaitBits(event_group_handle_,
         MQTT_PROTOCOL_SERVER_HELLO_EVENT | MQTT_PROTOCOL_SERVER_HELLO_FAILED_EVENT,
         pdTRUE, pdFALSE, pdMS_TO_TICKS(10000));
@@ -787,11 +788,18 @@ std::string MqttProtocol::GetHelloMessage() {
     cJSON* root = cJSON_CreateObject();
     cJSON_AddStringToObject(root, "type", "hello");
     cJSON_AddNumberToObject(root, "version", 3);
+#if CONFIG_USE_VOICE_DIALOGUE
     cJSON_AddStringToObject(root, "transport", "udp");
+#else
+    cJSON_AddStringToObject(root, "transport", "mqtt");
+#endif
     cJSON* features = cJSON_CreateObject();
     bool feature_aec = false;
     bool feature_daec = false;
-    bool supports_device_aec = Application::GetInstance().GetAudioService().SupportsDeviceAec();
+    bool supports_device_aec = false;
+#if CONFIG_USE_VOICE_DIALOGUE
+    supports_device_aec = Board::GetInstance().GetVoiceController()->GetAudioService().SupportsDeviceAec();
+#endif
 #if CONFIG_USE_SERVER_AEC
     feature_aec = true;
     cJSON_AddBoolToObject(features, "aec", true);
@@ -803,6 +811,7 @@ std::string MqttProtocol::GetHelloMessage() {
 #endif
     cJSON_AddBoolToObject(features, "mcp", true);
     cJSON_AddItemToObject(root, "features", features);
+#if CONFIG_USE_VOICE_DIALOGUE
     cJSON* audio_params = cJSON_CreateObject();
     cJSON_AddStringToObject(audio_params, "format", "opus");
     cJSON_AddNumberToObject(audio_params, "sample_rate", 16000);
@@ -810,6 +819,7 @@ std::string MqttProtocol::GetHelloMessage() {
     cJSON_AddNumberToObject(audio_params, "frame_duration", kUdpDownlinkFrameDurationMs);
     cJSON_AddBoolToObject(audio_params, "fec", kUdpDownlinkOpusFecEnabled);
     cJSON_AddItemToObject(root, "audio_params", audio_params);
+#endif
     auto json_str = cJSON_PrintUnformatted(root);
     std::string message(json_str);
     cJSON_free(json_str);
@@ -905,7 +915,7 @@ static inline uint8_t CharToHex(char c) {
     if (c >= '0' && c <= '9') return c - '0';
     if (c >= 'A' && c <= 'F') return c - 'A' + 10;
     if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-    return 0;  // 对于无效输入，返回0
+    return 0;  // 对于无效输入，返回
 }
 
 bool MqttProtocol::IsValidHexString(const std::string& text, size_t expected_decoded_size) const {
@@ -942,7 +952,7 @@ bool MqttProtocol::IsAudioChannelOpened() const {
 bool MqttProtocol::SendEmptyAudioPacket() {
     if (!IsAudioChannelOpened()) {
         return false;
-    }    
+    }
 
     auto packet = std::make_unique<AudioStreamPacket>();
     packet->frame_duration = OPUS_FRAME_DURATION_MS;
@@ -951,7 +961,7 @@ bool MqttProtocol::SendEmptyAudioPacket() {
     packet->payload.resize(10, 0x01);
     SendAudio(std::move(packet));
 
-    return true;   
+    return true;
 }
 
 void MqttProtocol::sendPlayVoiceText(const std::string& text)

@@ -140,7 +140,7 @@ private:
                     wifi_board.ResetWifiConfiguration();
                 }
             }
-            app.ToggleChatState();
+            Board::GetInstance().GetVoiceController()->ToggleChatState();
         });
         boot_button_.OnDoubleClick([this]() {
             auto& app = Application::GetInstance();

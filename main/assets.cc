@@ -2,6 +2,7 @@
 #include "board.h"
 #include "display.h"
 #include "application.h"
+#include "audio_service.h"
 #include "lvgl_theme.h"
 #include "emote_display.h"
 
@@ -122,7 +123,7 @@ bool Assets::Apply() {
             return false;
         }
     }
-    
+
     cJSON* srmodels = cJSON_GetObjectItem(root, "srmodels");
     if (cJSON_IsString(srmodels)) {
         std::string srmodels_file = srmodels->valuestring;
@@ -133,8 +134,9 @@ bool Assets::Apply() {
             }
             models_list_ = srmodel_load(static_cast<uint8_t*>(ptr));
             if (models_list_ != nullptr) {
-                auto& app = Application::GetInstance();
-                app.GetAudioService().SetModelsList(models_list_);
+#if CONFIG_USE_VOICE_DIALOGUE
+                Board::GetInstance().GetVoiceController()->GetAudioService().SetModelsList(models_list_);
+#endif
             } else {
                 ESP_LOGE(TAG, "Failed to load srmodels.bin");
             }
@@ -382,7 +384,7 @@ bool Assets::Download(std::string url, std::function<void(int progress, size_t s
     // 下载新的资源文件
     auto network = Board::GetInstance().GetNetwork();
     auto http = network->CreateHttp(0);
-    
+
     if (!http->Open("GET", url)) {
         ESP_LOGE(TAG, "Failed to open HTTP connection");
         return false;
@@ -406,12 +408,12 @@ bool Assets::Download(std::string url, std::function<void(int progress, size_t s
 
     // 定义扇区大小为4KB（ESP32的标准扇区大小）
     const size_t SECTOR_SIZE = esp_partition_get_main_flash_sector_size();
-    
+
     // 计算需要擦除的扇区数量
     size_t sectors_to_erase = (content_length + SECTOR_SIZE - 1) / SECTOR_SIZE; // 向上取整
     size_t total_erase_size = sectors_to_erase * SECTOR_SIZE;
-    
-    ESP_LOGI(TAG, "Sector size: %u, content length: %u, sectors to erase: %u, total erase size: %u", 
+
+    ESP_LOGI(TAG, "Sector size: %u, content length: %u, sectors to erase: %u, total erase size: %u",
              SECTOR_SIZE, content_length, sectors_to_erase, total_erase_size);
     
     // 写入新的资源文件到分区，一边erase一边写入
@@ -420,7 +422,7 @@ bool Assets::Download(std::string url, std::function<void(int progress, size_t s
     size_t recent_written = 0;
     size_t current_sector = 0;
     auto last_calc_time = esp_timer_get_time();
-    
+
     while (true) {
         int ret = http->Read(buffer, sizeof(buffer));
         if (ret < 0) {
@@ -446,14 +448,14 @@ bool Assets::Download(std::string url, std::function<void(int progress, size_t s
                 ESP_LOGE(TAG, "Sector end (%u) exceeds partition size (%lu)", sector_end, partition_->size);
                 return false;
             }
-            
+
             ESP_LOGD(TAG, "Erasing sector %u (offset: %u, size: %u)", current_sector, sector_start, SECTOR_SIZE);
             esp_err_t err = esp_partition_erase_range(partition_, sector_start, SECTOR_SIZE);
             if (err != ESP_OK) {
                 ESP_LOGE(TAG, "Failed to erase sector %u at offset %u: %s", current_sector, sector_start, esp_err_to_name(err));
                 return false;
             }
-            
+
             current_sector++;
         }
 
@@ -471,7 +473,7 @@ bool Assets::Download(std::string url, std::function<void(int progress, size_t s
         if (esp_timer_get_time() - last_calc_time >= 1000000 || total_written == content_length || ret == 0) {
             size_t progress = total_written * 100 / content_length;
             size_t speed = recent_written; // 每秒的字节数
-            ESP_LOGI(TAG, "Progress: %u%% (%u/%u), Speed: %u B/s, Sectors erased: %u", 
+            ESP_LOGI(TAG, "Progress: %u%% (%u/%u), Speed: %u B/s, Sectors erased: %u",
                      progress, total_written, content_length, speed, current_sector);
             if (progress_callback) {
                 progress_callback(progress, speed);
@@ -480,7 +482,7 @@ bool Assets::Download(std::string url, std::function<void(int progress, size_t s
             recent_written = 0; // 重置最近写入的字节数
         }
     }
-    
+
     http->Close();
 
     if (total_written != content_length) {
@@ -488,7 +490,7 @@ bool Assets::Download(std::string url, std::function<void(int progress, size_t s
         return false;
     }
 
-    ESP_LOGI(TAG, "Assets download completed, total written: %u bytes, total sectors erased: %u", 
+    ESP_LOGI(TAG, "Assets download completed, total written: %u bytes, total sectors erased: %u",
              total_written, current_sector);
 
     // 重新初始化资源分区
