@@ -8,6 +8,7 @@
 #include "mcp_server.h"
 #include "assets.h"
 #include "settings.h"
+#include "task_factory.h"
 
 #if CONFIG_USE_VOICE_DIALOGUE
 #include "voice_controller.h"
@@ -155,7 +156,7 @@ void Application::Start() {
 #endif
 
     // Start the main event loop task with priority 3
-    xTaskCreate([](void* arg) {
+    CreateTaskWithExternalStack([](void* arg) {
         ((Application*)arg)->MainEventLoop();
         vTaskDelete(NULL);
     }, "main_event_loop", 2048 * 4, this, 3, &main_event_loop_task_handle_);
@@ -275,7 +276,7 @@ void Application::Start() {
     BLEManager::GetInstance().start(board.getDeviceName());
 
 #if CONFIG_IDF_TARGET_ESP32P4
-    xTaskCreatePinnedToCore([](void* arg) {
+    CreatePinnedTaskWithExternalStack([](void* arg) {
         ESPHomeDevice& esphomeDevice = ESPHomeDevice::GetInstance();
         esphomeDevice.setup();
         while (true)
@@ -285,7 +286,7 @@ void Application::Start() {
         vTaskDelete(NULL);
     }, "esphome_loop", 2048 * 4, nullptr, 2, &esphome_loop_task_handle_, 0);
 #else
-    xTaskCreate([](void* arg) {
+    CreateTaskWithExternalStack([](void* arg) {
         ESPHomeDevice& esphomeDevice = ESPHomeDevice::GetInstance();
         esphomeDevice.setup();
         while (true)

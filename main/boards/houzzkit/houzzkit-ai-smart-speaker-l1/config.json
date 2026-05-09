@@ -5,7 +5,9 @@
         {
             "name": "houzzkit-smart-speaker",
             "sdkconfig_append": [
-                "CONFIG_USE_DEVICE_AEC=y"
+                "CONFIG_USE_DEVICE_AEC=y",
+                "CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY=y",
+                "CONFIG_FREERTOS_TASK_CREATE_ALLOW_EXT_MEM=y"
             ]
         }
     ]

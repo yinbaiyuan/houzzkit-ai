@@ -28,6 +28,7 @@ set(SOURCES "audio/audio_codec.cc"
             "protocols/websocket_protocol.cc"
             "mcp_server.cc"
             "system_info.cc"
+            "task_factory.cc"
             "application.cc"
             "ota.cc"
             "settings.cc"
@@ -585,6 +586,7 @@ if(CONFIG_USE_VOICE_DIALOGUE)
         list(APPEND SOURCES "audio/processors/no_audio_processor.cc")
     endif()
     if(CONFIG_IDF_TARGET_ESP32S3 OR CONFIG_IDF_TARGET_ESP32P4)
+        list(APPEND SOURCES "audio/wake_words/wake_word_pcm_buffer.cc")
         list(APPEND SOURCES "audio/wake_words/afe_wake_word.cc")
         list(APPEND SOURCES "audio/wake_words/custom_wake_word.cc")
     else()

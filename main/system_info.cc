@@ -1,6 +1,7 @@
 #include "system_info.h"
 
 #include <freertos/task.h>
+#include <esp_heap_caps.h>
 #include <esp_log.h>
 #include <esp_flash.h>
 #include <esp_mac.h>
@@ -151,8 +152,12 @@ void SystemInfo::PrintHeapStats() {
     int full_psram = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
     int free_psram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
     int min_free_psram = heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM);
-    ESP_LOGI(TAG, "[SRAM full: %u min: %u free: %u (%.2f%%)]", full_sram, min_free_sram, free_sram, (free_sram * 100.0) / full_sram);
-    ESP_LOGI(TAG, "[PSRAM full: %u min: %u free: %u (%.2f%%)]", full_psram, min_free_psram, free_psram, (free_psram * 100.0) / full_psram);
+    int largest_sram = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
+    int largest_psram = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
+    ESP_LOGI(TAG, "[SRAM full: %u min: %u free: %u largest: %u (%.2f%%)]", full_sram, min_free_sram, free_sram,
+             largest_sram, (free_sram * 100.0) / full_sram);
+    ESP_LOGI(TAG, "[PSRAM full: %u min: %u free: %u largest: %u (%.2f%%)]", full_psram, min_free_psram, free_psram,
+             largest_psram, (free_psram * 100.0) / full_psram);
 }
 
 std::string SystemInfo::getBleMacAddress()

@@ -14,7 +14,7 @@
 
 
 CustomWakeWord::CustomWakeWord()
-    : wake_word_pcm_(), wake_word_opus_() {
+    : wake_word_opus_() {
 }
 
 CustomWakeWord::~CustomWakeWord() {
@@ -190,12 +190,7 @@ size_t CustomWakeWord::GetFeedSize() {
 }
 
 void CustomWakeWord::StoreWakeWordData(const std::vector<int16_t>& data) {
-    // store audio data to wake_word_pcm_
-    wake_word_pcm_.push_back(data);
-    // keep about 2 seconds of data, detect duration is 30ms (sample_rate == 16000, chunksize == 512)
-    while (wake_word_pcm_.size() > 2000 / 30) {
-        wake_word_pcm_.pop_front();
-    }
+    wake_word_pcm_.Store(data.data(), data.size());
 }
 
 void CustomWakeWord::EncodeWakeWordData() {
@@ -218,15 +213,17 @@ void CustomWakeWord::EncodeWakeWordData() {
             encoder->SetComplexity(0); // 0 is the fastest
 
             int packets = 0;
-            for (auto& pcm: this_->wake_word_pcm_) {
-                encoder->Encode(std::move(pcm), [this_](std::vector<uint8_t>&& opus) {
+            std::vector<int16_t> wake_word_pcm;
+            this_->wake_word_pcm_.Snapshot(wake_word_pcm);
+            if (!wake_word_pcm.empty()) {
+                encoder->Encode(std::move(wake_word_pcm), [this_, &packets](std::vector<uint8_t>&& opus) {
                     std::lock_guard<std::mutex> lock(this_->wake_word_mutex_);
                     this_->wake_word_opus_.emplace_back(std::move(opus));
                     this_->wake_word_cv_.notify_all();
+                    packets++;
                 });
-                packets++;
             }
-            this_->wake_word_pcm_.clear();
+            this_->wake_word_pcm_.Clear();
 
             auto end_time = esp_timer_get_time();
             ESP_LOGI(TAG, "Encode wake word opus %d packets in %ld ms", packets, (long)((end_time - start_time) / 1000));

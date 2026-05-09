@@ -8,6 +8,7 @@
 #include "esphome_voice_device.h"
 #include "led/single_led.h"
 #include "assets/lang_config.h"
+#include "task_factory.h"
 
 #include <esp_log.h>
 #include <driver/i2c_master.h>
@@ -190,7 +191,7 @@ private:
         gpio_isr_handler_add(GPIO1_PIN, gpio1_isr_handler, (void*)GPIO1_PIN);
 
         // 创建GPIO1中断处理任务
-        xTaskCreate(&gpio1_task, "gpio1_task", 2048, NULL, 10, NULL);
+        CreateTaskWithExternalStack(&gpio1_task, "gpio1_task", 2048, NULL, 10, NULL);
     }
 
 public:
