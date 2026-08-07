@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <stdio.h>
 #include <string>
 #include "sleep_mode_time_interval.h"
@@ -16,7 +17,9 @@ class ESPHomeDevice
 
         void setupPreferences();
 
-        void setNoisePsk(const std::string noise_psk);
+        bool setNoisePsk(const std::string noise_psk);
+
+        bool isApiServerReady() const { return _apiServerReady.load(); }
 
         void setup();
 
@@ -80,4 +83,6 @@ class ESPHomeDevice
         SleepModeTimeInterval _sleepModeTimeInterval;
 
         bool _isInSleepModeInterval = false;
+
+        std::atomic<bool> _apiServerReady{false};
 };

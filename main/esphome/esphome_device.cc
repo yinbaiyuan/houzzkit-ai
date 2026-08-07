@@ -125,7 +125,6 @@ void ESPHomeDevice::setup()
 
   initProperties();
 
-#if !CONFIG_IDF_TARGET_ESP32P4
   api_apiserver_id = new esphome::api::APIServer();
   api_apiserver_id->set_component_source("api");
   esphome::App.register_component(api_apiserver_id);
@@ -133,9 +132,6 @@ void ESPHomeDevice::setup()
   api_apiserver_id->set_password("");
   api_apiserver_id->set_reboot_timeout(0);
   api_apiserver_id->set_batch_delay(100);
-#else
-  ESP_LOGW(TAG, "ESPHome API server remains disabled on ESP32-P4 for the validated 2.1.3 baseline");
-#endif
 
   preferences_intervalsyncer_id = new esphome::preferences::IntervalSyncer();
   preferences_intervalsyncer_id->set_write_interval(60000);
@@ -201,6 +197,7 @@ void ESPHomeDevice::setup()
 
 
   esphome::App.setup();
+  _apiServerReady.store(true);
 }
 
 void ESPHomeDevice::loop()
@@ -208,25 +205,25 @@ void ESPHomeDevice::loop()
   esphome::App.loop();
 }
 
-void ESPHomeDevice::setNoisePsk(const std::string noise_psk)
+bool ESPHomeDevice::setNoisePsk(const std::string noise_psk)
 {
-  if (api_apiserver_id == nullptr)
+  if (!_apiServerReady.load() || api_apiserver_id == nullptr)
   {
     ESP_LOGW(TAG, "ESPHome API server is unavailable, skip setting noise_psk");
-    return;
+    return false;
   }
 
   esphome::api::psk_t psk;
   if (noise_psk.length() != 64)
   {
     ESP_LOGE(TAG, "Invalid noise_psk length, must be 64 characters");
-    return;
+    return false;
   }
   for (int i = 0; i < 32; i++)
   {
     psk[i] = std::stoi(noise_psk.substr(i * 2, 2), nullptr, 16);
   }
-  api_apiserver_id->save_noise_psk(psk, true);
+  return api_apiserver_id->save_noise_psk(psk, true);
 }
 
 void ESPHomeDevice::setOutputVolume(uint8_t volume)

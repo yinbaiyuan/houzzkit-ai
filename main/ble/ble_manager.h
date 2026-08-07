@@ -2,6 +2,7 @@
 
 #include <NimBLEDevice.h>
 #include "proto_parse.h"
+#include <atomic>
 #include <map>
 
 enum BLE_DEVICE_PROPERTY : uint8_t {
@@ -27,6 +28,18 @@ private:
 
     esp_timer_handle_t pushApTimer_ = nullptr;
 
+    struct HomeAssistantProvisioningRequest {
+        std::string encryptionKey;
+        std::string noisePsk;
+        std::string haUrl;
+        std::string haApi;
+        std::string token;
+        std::string mcpEndpoint;
+        std::string deviceId;
+    };
+
+    std::atomic<bool> homeAssistantProvisioningInProgress_{false};
+
     std::string md5(const std::string& str);
 
     std::string hashAuthorization(const std::string& url, const std::map<std::string, std::string>& params, const std::string& mac, const std::string& salt);
@@ -34,6 +47,12 @@ private:
     std::string request(const std::string& method, const std::string& url, int16_t* status_code, const std::map<std::string, std::string>& headers = {}, const std::map<std::string, std::string>& payload = {});
 
     bool r_postDeviceName(const std::string& deviceId, const std::string& deviceName);
+
+    bool startHomeAssistantProvisioning(HomeAssistantProvisioningRequest request);
+
+    void processHomeAssistantProvisioning(HomeAssistantProvisioningRequest request);
+
+    void sendHomeAssistantProvisioningResult(uint8_t result, int16_t statusCode = 0);
 
 protected:
     
