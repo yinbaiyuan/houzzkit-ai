@@ -81,7 +81,6 @@ private:
     bool SubscribeDownlinkTopic();
     bool CheckHostReachable(const std::string& host, const char* context);
     bool ParseEndpoint(const std::string& endpoint, std::string& broker_address, int& broker_port);
-    const char* MessageForConnectError(MqttConnectError error) const;
     const char* MessageForHandshakeFailure(MqttHandshakeFailure failure) const;
     void BeginHandshake();
     void EndHandshake();

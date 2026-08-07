@@ -41,6 +41,10 @@ void AfeAudioProcessor::Initialize(AudioCodec* codec, int frame_duration_ms, srm
     afe_config->aec_mode = AEC_MODE_VOIP_HIGH_PERF;
     afe_config->vad_mode = VAD_MODE_0;
     afe_config->vad_min_noise_ms = 100;
+#if CONFIG_IDF_TARGET_ESP32P4
+    afe_config->afe_perferred_core = 0;
+    afe_config->afe_perferred_priority = 7;
+#endif
     if (vad_model_name != nullptr) {
         afe_config->vad_model_name = vad_model_name;
     }
@@ -56,10 +60,18 @@ void AfeAudioProcessor::Initialize(AudioCodec* codec, int frame_duration_ms, srm
     afe_config->agc_init = false;
     afe_config->memory_alloc_mode = AFE_MEMORY_ALLOC_MORE_PSRAM;
 
-#ifdef CONFIG_USE_DEVICE_AEC
-    afe_config->aec_init = true;
-    afe_config->vad_init = false;
+#if CONFIG_USE_DEVICE_AEC
+    supports_device_aec_ = codec_->input_reference();
+    if (supports_device_aec_) {
+        afe_config->aec_init = true;
+        afe_config->vad_init = false;
+    } else {
+        ESP_LOGW(TAG, "Input reference is unavailable, disabling device AEC for this codec");
+        afe_config->aec_init = false;
+        afe_config->vad_init = true;
+    }
 #else
+    supports_device_aec_ = false;
     afe_config->aec_init = false;
     afe_config->vad_init = true;
 #endif
@@ -67,11 +79,19 @@ void AfeAudioProcessor::Initialize(AudioCodec* codec, int frame_duration_ms, srm
     afe_iface_ = esp_afe_handle_from_config(afe_config);
     afe_data_ = afe_iface_->create_from_config(afe_config);
     
+#if CONFIG_IDF_TARGET_ESP32P4
+    xTaskCreatePinnedToCore([](void* arg) {
+        auto this_ = (AfeAudioProcessor*)arg;
+        this_->AudioProcessorTask();
+        vTaskDelete(NULL);
+    }, "audio_communication", 4096, this, 7, NULL, 0);
+#else
     xTaskCreate([](void* arg) {
         auto this_ = (AfeAudioProcessor*)arg;
         this_->AudioProcessorTask();
         vTaskDelete(NULL);
     }, "audio_communication", 4096, this, 3, NULL);
+#endif
 }
 
 AfeAudioProcessor::~AfeAudioProcessor() {
@@ -175,6 +195,12 @@ void AfeAudioProcessor::AudioProcessorTask() {
 void AfeAudioProcessor::EnableDeviceAec(bool enable) {
     if (enable) {
 #if CONFIG_USE_DEVICE_AEC
+        if (!supports_device_aec_) {
+            ESP_LOGW(TAG, "Device AEC is unavailable for current audio codec");
+            afe_iface_->disable_aec(afe_data_);
+            afe_iface_->enable_vad(afe_data_);
+            return;
+        }
         afe_iface_->disable_vad(afe_data_);
         afe_iface_->enable_aec(afe_data_);
 #else
@@ -184,4 +210,8 @@ void AfeAudioProcessor::EnableDeviceAec(bool enable) {
         afe_iface_->disable_aec(afe_data_);
         afe_iface_->enable_vad(afe_data_);
     }
+}
+
+bool AfeAudioProcessor::SupportsDeviceAec() const {
+    return supports_device_aec_;
 }

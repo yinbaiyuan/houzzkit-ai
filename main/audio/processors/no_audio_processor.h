@@ -21,6 +21,7 @@ public:
     void OnVadStateChange(std::function<void(bool speaking)> callback) override;
     size_t GetFeedSize() override;
     void EnableDeviceAec(bool enable) override;
+    bool SupportsDeviceAec() const override;
 
 private:
     AudioCodec* codec_ = nullptr;
@@ -30,4 +31,4 @@ private:
     bool is_running_ = false;
 };
 
-#endif 
+#endif

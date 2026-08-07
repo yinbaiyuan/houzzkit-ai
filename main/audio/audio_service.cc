@@ -1325,6 +1325,20 @@ void AudioService::EnableDeviceAec(bool enable) {
     audio_processor_->EnableDeviceAec(enable);
 }
 
+bool AudioService::SupportsDeviceAec() const {
+#if CONFIG_USE_DEVICE_AEC
+    if (codec_ == nullptr) {
+        return false;
+    }
+    if (!audio_processor_initialized_) {
+        return codec_->input_reference();
+    }
+    return audio_processor_ != nullptr && audio_processor_->SupportsDeviceAec();
+#else
+    return false;
+#endif
+}
+
 void AudioService::SetCallbacks(AudioServiceCallbacks& callbacks) {
     callbacks_ = callbacks;
 }

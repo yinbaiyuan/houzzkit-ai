@@ -96,6 +96,9 @@ private:
     void OnWakeWordDetected();
     void CheckAssetsVersion();
     void SetListeningMode(ListeningMode mode);
+    AecMode GetEffectiveAecMode() const;
+    bool SupportsRealtimeListening() const;
+    ListeningMode GetPreferredChatListeningMode() const;
 };
 
 

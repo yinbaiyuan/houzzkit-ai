@@ -9,7 +9,7 @@
 
 #define TAG "ESPHomeDevice"
 
-esphome::api::APIServer *api_apiserver_id;
+esphome::api::APIServer *api_apiserver_id = nullptr;
 esphome::preferences::IntervalSyncer *preferences_intervalsyncer_id;
 
 class WakeupButton : public esphome::button::Button
@@ -125,6 +125,7 @@ void ESPHomeDevice::setup()
 
   initProperties();
 
+#if !CONFIG_IDF_TARGET_ESP32P4
   api_apiserver_id = new esphome::api::APIServer();
   api_apiserver_id->set_component_source("api");
   esphome::App.register_component(api_apiserver_id);
@@ -132,6 +133,9 @@ void ESPHomeDevice::setup()
   api_apiserver_id->set_password("");
   api_apiserver_id->set_reboot_timeout(0);
   api_apiserver_id->set_batch_delay(100);
+#else
+  ESP_LOGW(TAG, "ESPHome API server remains disabled on ESP32-P4 for the validated 2.1.3 baseline");
+#endif
 
   preferences_intervalsyncer_id = new esphome::preferences::IntervalSyncer();
   preferences_intervalsyncer_id->set_write_interval(60000);
@@ -206,6 +210,12 @@ void ESPHomeDevice::loop()
 
 void ESPHomeDevice::setNoisePsk(const std::string noise_psk)
 {
+  if (api_apiserver_id == nullptr)
+  {
+    ESP_LOGW(TAG, "ESPHome API server is unavailable, skip setting noise_psk");
+    return;
+  }
+
   esphome::api::psk_t psk;
   if (noise_psk.length() != 64)
   {

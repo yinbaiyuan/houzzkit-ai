@@ -209,7 +209,9 @@ std::string WebsocketProtocol::GetHelloMessage() {
 #if CONFIG_USE_SERVER_AEC
     cJSON_AddBoolToObject(features, "aec", true);
 #elif CONFIG_USE_DEVICE_AEC
-    cJSON_AddBoolToObject(features, "daec", true);
+    if (Application::GetInstance().GetAudioService().SupportsDeviceAec()) {
+        cJSON_AddBoolToObject(features, "daec", true);
+    }
 #endif
     cJSON_AddBoolToObject(features, "mcp", true);
     cJSON_AddItemToObject(root, "features", features);

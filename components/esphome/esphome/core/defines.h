@@ -1,6 +1,6 @@
 #pragma once
 
-#ifndef USE_ESP32_VARIANT_ESP32S3
+#if !defined(USE_ESP32_VARIANT_ESP32S3) && !defined(USE_ESP32_VARIANT_ESP32P4)
 #define USE_ESP32_VARIANT_ESP32S3
 #endif
 

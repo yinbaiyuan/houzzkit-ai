@@ -188,10 +188,9 @@ bool MqttProtocol::StartMqttClient(bool report_error) {
         return false;
     }
     if (!mqtt_->Connect(broker_address, broker_port, client_id, username, password)) {
-        ESP_LOGE(TAG, "Failed to connect to endpoint, reason=%d detail=%s",
-            static_cast<int>(mqtt_->LastConnectError()), mqtt_->LastConnectErrorMessage().c_str());
+        ESP_LOGE(TAG, "Failed to connect to endpoint");
         if (report_error) {
-            SetError(MessageForConnectError(mqtt_->LastConnectError()));
+            SetError(Lang::Strings::SERVICE_CONNECT_FAILED);
         }
         return false;
     }
@@ -252,27 +251,6 @@ bool MqttProtocol::CheckHostReachable(const std::string& host, const char* conte
         return false;
     }
     return true;
-}
-
-const char* MqttProtocol::MessageForConnectError(MqttConnectError error) const {
-    switch (error) {
-        case MqttConnectError::Timeout:
-            return Lang::Strings::SERVICE_CONNECT_TIMEOUT;
-        case MqttConnectError::DnsFailed:
-            return Lang::Strings::DNS_RESOLVE_FAILED;
-        case MqttConnectError::AuthFailed:
-            return Lang::Strings::AUTH_FAILED;
-        case MqttConnectError::ProtocolRejected:
-            return Lang::Strings::PROTOCOL_REJECTED;
-        case MqttConnectError::ClientIdRejected:
-            return Lang::Strings::CLIENT_ID_REJECTED;
-        case MqttConnectError::Rejected:
-            return Lang::Strings::SERVICE_REJECTED;
-        case MqttConnectError::Failed:
-        case MqttConnectError::None:
-        default:
-            return Lang::Strings::SERVICE_CONNECT_FAILED;
-    }
 }
 
 const char* MqttProtocol::MessageForHandshakeFailure(MqttHandshakeFailure failure) const {
@@ -676,7 +654,9 @@ std::string MqttProtocol::GetHelloMessage() {
 #if CONFIG_USE_SERVER_AEC
     cJSON_AddBoolToObject(features, "aec", true);
 #elif CONFIG_USE_DEVICE_AEC
-    cJSON_AddBoolToObject(features, "daec", true);
+    if (Application::GetInstance().GetAudioService().SupportsDeviceAec()) {
+        cJSON_AddBoolToObject(features, "daec", true);
+    }
 #endif
     cJSON_AddBoolToObject(features, "mcp", true);
     cJSON_AddItemToObject(root, "features", features);
