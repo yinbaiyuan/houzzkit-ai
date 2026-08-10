@@ -2,13 +2,13 @@
 #include "board.h"
 #include "application.h"
 #include "settings.h"
+#include "time_sync.h"
 
 #include <esp_log.h>
 #include <cerrno>
 #include <cstring>
 #include <cstdint>
 #include <cstdlib>
-#include <sys/time.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include "assets/lang_config.h"
@@ -151,7 +151,7 @@ bool MqttProtocol::StartMqttClient(bool report_error) {
         }
 
         if (strcmp(type->valuestring, "time_sync") == 0) {
-            HandleTimeSyncMessage(root, payload);
+            HandleTimeSyncMessage(root);
         } else if (strcmp(type->valuestring, "hello") == 0) {
             if (!ParseServerHello(root)) {
                 SignalHandshakeFailure(MqttHandshakeFailure::ServiceDataError, "invalid service session response");
@@ -378,39 +378,11 @@ bool MqttProtocol::SendHelloText(const std::string& text) {
     return true;
 }
 
-bool MqttProtocol::HandleTimeSyncMessage(const cJSON* root, const std::string& payload) {
-    ESP_LOGI(TAG, "Received time_sync response");
-
+bool MqttProtocol::HandleTimeSyncMessage(const cJSON* root) {
     auto server_time = cJSON_GetObjectItem(root, "server_time");
-    if (!cJSON_IsObject(server_time)) {
-        ESP_LOGW(TAG, "Invalid time_sync message: missing server_time");
-        return true;
+    if (SyncServerTimeFromJson(server_time, "mqtt")) {
+        Application::GetInstance().SetServerTimeSynced(true);
     }
-
-    auto timestamp = cJSON_GetObjectItem(server_time, "timestamp");
-    if (!cJSON_IsNumber(timestamp)) {
-        ESP_LOGW(TAG, "Invalid time_sync message: missing timestamp");
-        return true;
-    }
-
-    int64_t timestamp_ms = static_cast<int64_t>(timestamp->valuedouble);
-    if (timestamp_ms <= 0) {
-        ESP_LOGW(TAG, "Invalid time_sync timestamp: sec=%ld ms_part=%03ld",
-            static_cast<long>(timestamp_ms / 1000),
-            static_cast<long>(timestamp_ms % 1000));
-        return true;
-    }
-
-    struct timeval tv = {};
-    tv.tv_sec = timestamp_ms / 1000;
-    tv.tv_usec = (timestamp_ms % 1000) * 1000;
-    if (settimeofday(&tv, nullptr) != 0) {
-        ESP_LOGW(TAG, "Failed to set system time from time_sync");
-        return true;
-    }
-
-    ESP_LOGI(TAG, "System time synced: %s", payload.c_str());
-    Application::GetInstance().SetServerTimeSynced(true);
     return true;
 }
 

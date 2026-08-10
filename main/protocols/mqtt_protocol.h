@@ -72,7 +72,7 @@ private:
 
     bool StartMqttClient(bool report_error=false);
     bool ParseServerHello(const cJSON* root);
-    bool HandleTimeSyncMessage(const cJSON* root, const std::string& payload);
+    bool HandleTimeSyncMessage(const cJSON* root);
     std::string DecodeHexString(const std::string& hex_string);
 
     bool SendText(const std::string& text) override;

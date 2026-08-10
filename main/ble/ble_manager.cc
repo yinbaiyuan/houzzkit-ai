@@ -31,6 +31,8 @@
 #define TAG "BLEManager"
 
 namespace {
+static constexpr char kEspHomeApiPort[] = "6053";
+
 bool IsHexString(const std::string& value) {
     for (char ch : value) {
         if (!std::isxdigit(static_cast<unsigned char>(ch))) {
@@ -385,7 +387,7 @@ void BLEManager::processHomeAssistantProvisioning(HomeAssistantProvisioningReque
 
     std::map<std::string, std::string> params;
     params["host"] = WifiStation::GetInstance().GetIpAddress();
-    params["port"] = "6053";
+    params["port"] = kEspHomeApiPort;
     params["noise_psk"] = request.encryptionKey;
     params["mcp_endpoint"] = request.mcpEndpoint + "?token=" + request.token;
     params["speak_id"] = request.deviceId;
@@ -494,6 +496,7 @@ void BLEManager::registerProto()
 
     _protoCallbackMap[CMD_GET_DEVICE_INFO] = [this](const uint8_t *payload, uint16_t length)
     {
+        std::string ipAddress = WifiStation::GetInstance().GetIpAddress();
         _protoParse.protoBegin(CMD_GET_DEVICE_INFO)
             .pushUint8(0)
             .pushString8(SystemInfo::GetMacAddress())
@@ -506,6 +509,8 @@ void BLEManager::registerProto()
             .pushUint8(ESPHomeDevice::GetInstance().idleScreenOff() ? 1 : 0)
             .pushUint8(ESPHomeDevice::GetInstance().sleepMode() ? 1 : 0)
             .pushUint32(ESPHomeDevice::GetInstance().sleepModeTimeInterval())
+            .pushString8(ipAddress)
+            .pushString8(kEspHomeApiPort)
             .protoSend();
         return true;
     };
