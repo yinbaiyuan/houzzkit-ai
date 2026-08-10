@@ -7,7 +7,6 @@
 #include <tuple>
 
 // Standard C headers
-#include <sys/time.h>
 #include <time.h>
 
 // ESP-IDF headers
@@ -482,8 +481,6 @@ void EmoteDisplay::UpdateStatusBar(bool update_all)
         struct tm timeinfo;
         time(&now);
 
-        setenv("TZ", "GMT+0", 1);
-        tzset();
         localtime_r(&now, &timeinfo);
 
         char time_str[6];

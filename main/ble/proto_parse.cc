@@ -6,6 +6,10 @@
 
 #define TAG "ProtoParse"
 
+namespace {
+constexpr size_t kMaxBleProtocolFrameSize = 4096;
+}
+
 void ProtoParse::invertUint16(uint16_t *dBuf, uint16_t *srcBuf)
 {
     uint16_t tmp[4] = {0};
@@ -76,6 +80,15 @@ ProtoParse &ProtoParse::protoBegin(uint8_t cmd)
 
 void ProtoParse::parse(const uint8_t *data, const uint32_t length)
 {
+    if (length > kMaxBleProtocolFrameSize ||
+        _decodeVector.size() > kMaxBleProtocolFrameSize - length)
+    {
+        ESP_LOGE(TAG, "BLE protocol frame exceeds maximum size: buffered=%u incoming=%u",
+            static_cast<unsigned>(_decodeVector.size()), static_cast<unsigned>(length));
+        _decodeVector.clear();
+        return;
+    }
+
     _decodeVector.insert(_decodeVector.end(), data, data + length);
     if (_decodeVector.size() < 2)
     {
@@ -89,13 +102,30 @@ void ProtoParse::parse(const uint8_t *data, const uint32_t length)
     if (this->CRC16_MODBUS((uint8_t *)_decodeVector.data() + 2, protoDataLength) == 0)
     {
         // CRC校验通过
+        if (protoDataLength < 3)
+        {
+            ESP_LOGE(TAG, "BLE protocol frame is too short: %u", protoDataLength);
+            _decodeVector.clear();
+            return;
+        }
+
         uint8_t cmd = _decodeVector.data()[2];
         if (cmd == 100) 
         {
-            this->_protoParseCompletecallbacks->onProtoParseComplete(cmd, _decodeVector.data() + 3, protoDataLength - 3);
+            if (this->_protoParseCompletecallbacks)
+            {
+                this->_protoParseCompletecallbacks->onProtoParseComplete(cmd, _decodeVector.data() + 3, protoDataLength - 3);
+            }
         }
         else
         {
+            if (protoDataLength < 4)
+            {
+                ESP_LOGE(TAG, "Authenticated BLE protocol frame is too short: %u", protoDataLength);
+                _decodeVector.clear();
+                return;
+            }
+
             uint8_t tokenLength = _decodeVector.data()[3];
             if (tokenLength != 32)
             {
@@ -103,6 +133,14 @@ void ProtoParse::parse(const uint8_t *data, const uint32_t length)
             }
             else
             {
+                constexpr uint16_t kAuthenticatedFrameOverhead = 4 + 32;
+                if (protoDataLength < kAuthenticatedFrameOverhead)
+                {
+                    ESP_LOGE(TAG, "Authenticated BLE protocol payload is truncated: %u", protoDataLength);
+                    _decodeVector.clear();
+                    return;
+                }
+
                 std::string token((char *)(_decodeVector.data() + 4), tokenLength);
                 if (token != _clientToken)
                 {
@@ -113,7 +151,10 @@ void ProtoParse::parse(const uint8_t *data, const uint32_t length)
                 {
                     if (this->_protoParseCompletecallbacks)
                     {
-                        this->_protoParseCompletecallbacks->onProtoParseComplete(cmd, _decodeVector.data() + 4 + tokenLength, protoDataLength - 4 - tokenLength);
+                        this->_protoParseCompletecallbacks->onProtoParseComplete(
+                            cmd,
+                            _decodeVector.data() + 4 + tokenLength,
+                            protoDataLength - kAuthenticatedFrameOverhead);
                     }
                 }
             }

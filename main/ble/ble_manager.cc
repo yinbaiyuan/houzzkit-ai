@@ -10,6 +10,9 @@
 #include "assets/lang_config.h"
 #include <esp_wifi_types_generic.h>
 #include <mbedtls/md5.h>
+#include <cctype>
+#include <memory>
+#include <new>
 #include <random>
 #include <chrono>
 
@@ -26,6 +29,19 @@
 #define HK_BLE_PROTO_VERSION_PATCH 0x00
 
 #define TAG "BLEManager"
+
+namespace {
+static constexpr char kEspHomeApiPort[] = "6053";
+
+bool IsHexString(const std::string& value) {
+    for (char ch : value) {
+        if (!std::isxdigit(static_cast<unsigned char>(ch))) {
+            return false;
+        }
+    }
+    return true;
+}
+} // namespace
 
 void BLEManager::onConnect(NimBLEServer *pServer, NimBLEConnInfo &connInfo)
 {
@@ -309,6 +325,92 @@ std::string BLEManager::request(const std::string &method, const std::string &ur
     return res;
 }
 
+void BLEManager::sendHomeAssistantProvisioningResult(uint8_t result, int16_t statusCode) {
+    ProtoParse response(32);
+    response.setCallbacks(this);
+    response.protoBegin(CMD_CONFIG_HOME_ASSISTANT).pushUint8(result);
+    if (result != 0) {
+        response.pushInt16(statusCode);
+    }
+    response.protoSend();
+}
+
+bool BLEManager::startHomeAssistantProvisioning(HomeAssistantProvisioningRequest request) {
+    if (homeAssistantProvisioningInProgress_.exchange(true)) {
+        ESP_LOGW(TAG, "Home Assistant provisioning is already in progress");
+        sendHomeAssistantProvisioningResult(1, -2);
+        return false;
+    }
+
+    struct TaskContext {
+        BLEManager* manager;
+        HomeAssistantProvisioningRequest request;
+    };
+
+    auto* context = new (std::nothrow) TaskContext{this, std::move(request)};
+    if (context == nullptr) {
+        homeAssistantProvisioningInProgress_.store(false);
+        ESP_LOGE(TAG, "Failed to allocate Home Assistant provisioning context");
+        sendHomeAssistantProvisioningResult(1, -3);
+        return false;
+    }
+
+    BaseType_t taskCreated = xTaskCreate([](void* arg) {
+        std::unique_ptr<TaskContext> context(static_cast<TaskContext*>(arg));
+        context->manager->processHomeAssistantProvisioning(std::move(context->request));
+        vTaskDelete(nullptr);
+    }, "ha_provision", 8192, context, 4, nullptr);
+
+    if (taskCreated != pdPASS) {
+        delete context;
+        homeAssistantProvisioningInProgress_.store(false);
+        ESP_LOGE(TAG, "Failed to create Home Assistant provisioning task");
+        sendHomeAssistantProvisioningResult(1, -3);
+        return false;
+    }
+
+    ESP_LOGI(TAG, "Home Assistant provisioning task scheduled");
+    return true;
+}
+
+void BLEManager::processHomeAssistantProvisioning(HomeAssistantProvisioningRequest request) {
+    auto& esphomeDevice = ESPHomeDevice::GetInstance();
+    for (int attempt = 0; attempt < 50 && !esphomeDevice.isApiServerReady(); ++attempt) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    if (!esphomeDevice.setNoisePsk(request.noisePsk)) {
+        ESP_LOGE(TAG, "Home Assistant provisioning failed: ESPHome API server is unavailable");
+        sendHomeAssistantProvisioningResult(1, -5);
+        homeAssistantProvisioningInProgress_.store(false);
+        return;
+    }
+
+    std::map<std::string, std::string> params;
+    params["host"] = WifiStation::GetInstance().GetIpAddress();
+    params["port"] = kEspHomeApiPort;
+    params["noise_psk"] = request.encryptionKey;
+    params["mcp_endpoint"] = request.mcpEndpoint + "?token=" + request.token;
+    params["speak_id"] = request.deviceId;
+
+    int16_t statusCode = 0;
+    std::string response = this->request("POST", request.haUrl + request.haApi, &statusCode, {}, params);
+    (void)response;
+
+    if (statusCode == 200) {
+        Settings settings("ha_url", true);
+        if (settings.GetString("url") != request.haUrl) {
+            settings.SetString("url", request.haUrl);
+        }
+        ESP_LOGI(TAG, "Home Assistant provisioning completed, status=%d", statusCode);
+        sendHomeAssistantProvisioningResult(0);
+    } else {
+        ESP_LOGE(TAG, "Home Assistant provisioning failed, status=%d", statusCode);
+        sendHomeAssistantProvisioningResult(1, statusCode);
+    }
+
+    homeAssistantProvisioningInProgress_.store(false);
+}
+
 std::string generateRandomString(size_t length) {
     // 定义可用字符集（62个字符）
     const std::string chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -394,6 +496,7 @@ void BLEManager::registerProto()
 
     _protoCallbackMap[CMD_GET_DEVICE_INFO] = [this](const uint8_t *payload, uint16_t length)
     {
+        std::string ipAddress = WifiStation::GetInstance().GetIpAddress();
         _protoParse.protoBegin(CMD_GET_DEVICE_INFO)
             .pushUint8(0)
             .pushString8(SystemInfo::GetMacAddress())
@@ -406,6 +509,8 @@ void BLEManager::registerProto()
             .pushUint8(ESPHomeDevice::GetInstance().idleScreenOff() ? 1 : 0)
             .pushUint8(ESPHomeDevice::GetInstance().sleepMode() ? 1 : 0)
             .pushUint32(ESPHomeDevice::GetInstance().sleepModeTimeInterval())
+            .pushString8(ipAddress)
+            .pushString8(kEspHomeApiPort)
             .protoSend();
         return true;
     };
@@ -508,40 +613,25 @@ void BLEManager::registerProto()
 
     _protoCallbackMap[CMD_CONFIG_HOME_ASSISTANT] = [this](const uint8_t *payload, uint16_t length)
     {
-        std::string encryptionKey = _protoParse.popString8();
-        std::string noisePsk = _protoParse.popString8();
-        std::string haUrl = _protoParse.popString8();
-        std::string haApi = _protoParse.popString8();
-        std::string token_str = _protoParse.popString8();
-        std::string mcpEndpoint = _protoParse.popString8();
-        std::string deviceId = _protoParse.popString8();
+        HomeAssistantProvisioningRequest request;
+        request.encryptionKey = _protoParse.popString8();
+        request.noisePsk = _protoParse.popString8();
+        request.haUrl = _protoParse.popString8();
+        request.haApi = _protoParse.popString8();
+        request.token = _protoParse.popString8();
+        request.mcpEndpoint = _protoParse.popString8();
+        request.deviceId = _protoParse.popString8();
 
-        ESPHomeDevice::GetInstance().setNoisePsk(noisePsk);
-        std::map<std::string, std::string> params;
-        params["host"] = WifiStation::GetInstance().GetIpAddress();
-        params["port"] = "6053";
-        params["noise_psk"] = encryptionKey;
-        params["mcp_endpoint"] = mcpEndpoint + "?token=" + token_str;
-        params["speak_id"] = deviceId;
-
-        int16_t status_code = 0;
-        std::string res = request("POST", haUrl + haApi, &status_code, {}, params);
-        if (status_code != 200)
-        {
-            _protoParse.protoBegin(CMD_CONFIG_HOME_ASSISTANT)
-                .pushUint8(1)
-                .pushInt16(status_code)
-                .protoSend();
+        bool invalidPayload = _protoParse.decodeError() || _protoParse.remainingDeBufferSize() != 0 ||
+            request.encryptionKey.empty() || request.haUrl.empty() || request.haApi.empty() ||
+            request.noisePsk.length() != 64 || !IsHexString(request.noisePsk);
+        if (invalidPayload) {
+            ESP_LOGE(TAG, "Invalid Home Assistant provisioning payload, length=%u", length);
+            sendHomeAssistantProvisioningResult(1, -4);
             return true;
         }
-        _protoParse.protoBegin(CMD_CONFIG_HOME_ASSISTANT)
-            .pushUint8(0)
-            .protoSend();
-        Settings settings("ha_url", true);
-        if (settings.GetString("url") != haUrl)
-        {
-            settings.SetString("url", haUrl);
-        }
+
+        startHomeAssistantProvisioning(std::move(request));
         return true;
     };
 

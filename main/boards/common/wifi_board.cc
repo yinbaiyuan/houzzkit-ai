@@ -10,6 +10,9 @@
 #include <freertos/task.h>
 #include <esp_network.h>
 #include <esp_log.h>
+#if CONFIG_IDF_TARGET_ESP32P4
+#include "esp_wifi_remote.h"
+#endif
 
 #include <font_awesome.h>
 #include <wifi_station.h>

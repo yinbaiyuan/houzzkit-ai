@@ -159,7 +159,8 @@ std::string SystemInfo::getBleMacAddress()
 {
     uint8_t mac[6];
 #if CONFIG_IDF_TARGET_ESP32P4
-    esp_wifi_get_mac(ESP_MAC_BT, mac);
+    // ESP32-P4 使用远端 Wi-Fi/BT 方案，这里回退到 STA MAC，避免继续假定本地 BT 接口存在。
+    esp_wifi_get_mac(WIFI_IF_STA, mac);
 #else
     esp_read_mac(mac, ESP_MAC_BT);
 #endif

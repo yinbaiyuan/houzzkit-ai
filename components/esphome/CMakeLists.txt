@@ -66,10 +66,15 @@ idf_component_register(
 )
 
 # 编译选项
+set(ESPHOME_VARIANT_DEFINE "-DUSE_ESP32_VARIANT_ESP32S3")
+if(CONFIG_IDF_TARGET_ESP32P4)
+    set(ESPHOME_VARIANT_DEFINE "-DUSE_ESP32_VARIANT_ESP32P4")
+endif()
+
 target_compile_options(${COMPONENT_LIB} PRIVATE
     -DUSE_ESP32
     -DUSE_ESP32_FRAMEWORK_ESP_IDF
-    -DUSE_ESP32_VARIANT_ESP32S3
+    ${ESPHOME_VARIANT_DEFINE}
     -DUSE_ESP_IDF
     -Wno-nonnull-compare
     -Wno-sign-compare

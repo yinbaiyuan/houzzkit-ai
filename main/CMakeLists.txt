@@ -32,6 +32,7 @@ set(SOURCES "audio/audio_codec.cc"
             "mcp_server.cc"
             "system_info.cc"
             "application.cc"
+            "time_sync.cc"
             "settings.cc"
             "device_state_event.cc"
             "assets.cc"
@@ -305,6 +306,11 @@ elseif(CONFIG_BOARD_TYPE_ESP32P4_WIFI6_Touch_LCD_7B)
     set(DEFAULT_EMOJI_COLLECTION twemoji_64)
 elseif(CONFIG_BOARD_TYPE_ESP32P4_WIFI6_Touch_LCD_XC)
     set(BOARD_TYPE "waveshare-p4-wifi6-touch-lcd-xc")
+    set(BUILTIN_TEXT_FONT font_puhui_basic_30_4)
+    set(BUILTIN_ICON_FONT font_awesome_30_4)
+    set(DEFAULT_EMOJI_COLLECTION twemoji_64)
+elseif(CONFIG_BOARD_TYPE_ESP32P4_86_PANEL_ETH_2RO)
+    set(BOARD_TYPE "waveshare-p4-86-panel-eth-2ro")
     set(BUILTIN_TEXT_FONT font_puhui_basic_30_4)
     set(BUILTIN_ICON_FONT font_awesome_30_4)
     set(DEFAULT_EMOJI_COLLECTION twemoji_64)

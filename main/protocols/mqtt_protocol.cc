@@ -2,13 +2,13 @@
 #include "board.h"
 #include "application.h"
 #include "settings.h"
+#include "time_sync.h"
 
 #include <esp_log.h>
 #include <cerrno>
 #include <cstring>
 #include <cstdint>
 #include <cstdlib>
-#include <sys/time.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include "assets/lang_config.h"
@@ -151,7 +151,7 @@ bool MqttProtocol::StartMqttClient(bool report_error) {
         }
 
         if (strcmp(type->valuestring, "time_sync") == 0) {
-            HandleTimeSyncMessage(root, payload);
+            HandleTimeSyncMessage(root);
         } else if (strcmp(type->valuestring, "hello") == 0) {
             if (!ParseServerHello(root)) {
                 SignalHandshakeFailure(MqttHandshakeFailure::ServiceDataError, "invalid service session response");
@@ -188,10 +188,9 @@ bool MqttProtocol::StartMqttClient(bool report_error) {
         return false;
     }
     if (!mqtt_->Connect(broker_address, broker_port, client_id, username, password)) {
-        ESP_LOGE(TAG, "Failed to connect to endpoint, reason=%d detail=%s",
-            static_cast<int>(mqtt_->LastConnectError()), mqtt_->LastConnectErrorMessage().c_str());
+        ESP_LOGE(TAG, "Failed to connect to endpoint");
         if (report_error) {
-            SetError(MessageForConnectError(mqtt_->LastConnectError()));
+            SetError(Lang::Strings::SERVICE_CONNECT_FAILED);
         }
         return false;
     }
@@ -252,27 +251,6 @@ bool MqttProtocol::CheckHostReachable(const std::string& host, const char* conte
         return false;
     }
     return true;
-}
-
-const char* MqttProtocol::MessageForConnectError(MqttConnectError error) const {
-    switch (error) {
-        case MqttConnectError::Timeout:
-            return Lang::Strings::SERVICE_CONNECT_TIMEOUT;
-        case MqttConnectError::DnsFailed:
-            return Lang::Strings::DNS_RESOLVE_FAILED;
-        case MqttConnectError::AuthFailed:
-            return Lang::Strings::AUTH_FAILED;
-        case MqttConnectError::ProtocolRejected:
-            return Lang::Strings::PROTOCOL_REJECTED;
-        case MqttConnectError::ClientIdRejected:
-            return Lang::Strings::CLIENT_ID_REJECTED;
-        case MqttConnectError::Rejected:
-            return Lang::Strings::SERVICE_REJECTED;
-        case MqttConnectError::Failed:
-        case MqttConnectError::None:
-        default:
-            return Lang::Strings::SERVICE_CONNECT_FAILED;
-    }
 }
 
 const char* MqttProtocol::MessageForHandshakeFailure(MqttHandshakeFailure failure) const {
@@ -400,39 +378,11 @@ bool MqttProtocol::SendHelloText(const std::string& text) {
     return true;
 }
 
-bool MqttProtocol::HandleTimeSyncMessage(const cJSON* root, const std::string& payload) {
-    ESP_LOGI(TAG, "Received time_sync response");
-
+bool MqttProtocol::HandleTimeSyncMessage(const cJSON* root) {
     auto server_time = cJSON_GetObjectItem(root, "server_time");
-    if (!cJSON_IsObject(server_time)) {
-        ESP_LOGW(TAG, "Invalid time_sync message: missing server_time");
-        return true;
+    if (SyncServerTimeFromJson(server_time, "mqtt")) {
+        Application::GetInstance().SetServerTimeSynced(true);
     }
-
-    auto timestamp = cJSON_GetObjectItem(server_time, "timestamp");
-    if (!cJSON_IsNumber(timestamp)) {
-        ESP_LOGW(TAG, "Invalid time_sync message: missing timestamp");
-        return true;
-    }
-
-    int64_t timestamp_ms = static_cast<int64_t>(timestamp->valuedouble);
-    if (timestamp_ms <= 0) {
-        ESP_LOGW(TAG, "Invalid time_sync timestamp: sec=%ld ms_part=%03ld",
-            static_cast<long>(timestamp_ms / 1000),
-            static_cast<long>(timestamp_ms % 1000));
-        return true;
-    }
-
-    struct timeval tv = {};
-    tv.tv_sec = timestamp_ms / 1000;
-    tv.tv_usec = (timestamp_ms % 1000) * 1000;
-    if (settimeofday(&tv, nullptr) != 0) {
-        ESP_LOGW(TAG, "Failed to set system time from time_sync");
-        return true;
-    }
-
-    ESP_LOGI(TAG, "System time synced: %s", payload.c_str());
-    Application::GetInstance().SetServerTimeSynced(true);
     return true;
 }
 
@@ -676,7 +626,9 @@ std::string MqttProtocol::GetHelloMessage() {
 #if CONFIG_USE_SERVER_AEC
     cJSON_AddBoolToObject(features, "aec", true);
 #elif CONFIG_USE_DEVICE_AEC
-    cJSON_AddBoolToObject(features, "daec", true);
+    if (Application::GetInstance().GetAudioService().SupportsDeviceAec()) {
+        cJSON_AddBoolToObject(features, "daec", true);
+    }
 #endif
     cJSON_AddBoolToObject(features, "mcp", true);
     cJSON_AddItemToObject(root, "features", features);

@@ -9,7 +9,7 @@
 
 #define TAG "ESPHomeDevice"
 
-esphome::api::APIServer *api_apiserver_id;
+esphome::api::APIServer *api_apiserver_id = nullptr;
 esphome::preferences::IntervalSyncer *preferences_intervalsyncer_id;
 
 class WakeupButton : public esphome::button::Button
@@ -197,6 +197,7 @@ void ESPHomeDevice::setup()
 
 
   esphome::App.setup();
+  _apiServerReady.store(true);
 }
 
 void ESPHomeDevice::loop()
@@ -204,19 +205,25 @@ void ESPHomeDevice::loop()
   esphome::App.loop();
 }
 
-void ESPHomeDevice::setNoisePsk(const std::string noise_psk)
+bool ESPHomeDevice::setNoisePsk(const std::string noise_psk)
 {
+  if (!_apiServerReady.load() || api_apiserver_id == nullptr)
+  {
+    ESP_LOGW(TAG, "ESPHome API server is unavailable, skip setting noise_psk");
+    return false;
+  }
+
   esphome::api::psk_t psk;
   if (noise_psk.length() != 64)
   {
     ESP_LOGE(TAG, "Invalid noise_psk length, must be 64 characters");
-    return;
+    return false;
   }
   for (int i = 0; i < 32; i++)
   {
     psk[i] = std::stoi(noise_psk.substr(i * 2, 2), nullptr, 16);
   }
-  api_apiserver_id->save_noise_psk(psk, true);
+  return api_apiserver_id->save_noise_psk(psk, true);
 }
 
 void ESPHomeDevice::setOutputVolume(uint8_t volume)

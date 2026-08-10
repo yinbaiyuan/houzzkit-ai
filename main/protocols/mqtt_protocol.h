@@ -72,7 +72,7 @@ private:
 
     bool StartMqttClient(bool report_error=false);
     bool ParseServerHello(const cJSON* root);
-    bool HandleTimeSyncMessage(const cJSON* root, const std::string& payload);
+    bool HandleTimeSyncMessage(const cJSON* root);
     std::string DecodeHexString(const std::string& hex_string);
 
     bool SendText(const std::string& text) override;
@@ -81,7 +81,6 @@ private:
     bool SubscribeDownlinkTopic();
     bool CheckHostReachable(const std::string& host, const char* context);
     bool ParseEndpoint(const std::string& endpoint, std::string& broker_address, int& broker_port);
-    const char* MessageForConnectError(MqttConnectError error) const;
     const char* MessageForHandshakeFailure(MqttHandshakeFailure failure) const;
     void BeginHandshake();
     void EndHandshake();
